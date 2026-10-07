@@ -88,6 +88,17 @@
   .reu .quienes{margin-top:12px;font-size:14px;color:var(--gris);line-height:1.45}
   .reu .quienes b{color:var(--texto);font-weight:600}
   .reu .texto{margin-top:12px;line-height:1.6;white-space:pre-line}
+  /* ---- Cargar reunión ---- */
+  #cargar{overflow:auto;padding:26px 28px 60px}
+  #cargar h2{font-size:26px;letter-spacing:-.02em}
+  #fReunion{margin-top:20px;background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:22px;max-width:760px;display:grid;gap:16px}
+  #fReunion label{display:block;font-weight:600;font-size:14px}
+  #fReunion label .campo{display:block;margin-top:6px;font-weight:400;font-size:15px}
+  #fReunion label span{font-weight:400;color:var(--gris)}
+  #fReunion .dos{display:grid;grid-template-columns:1fr 200px;gap:14px}
+  #fReunion textarea{min-height:280px;resize:vertical;line-height:1.5}
+  #fReunion .primario{justify-self:start;padding:11px 24px}
+  #cargado{margin-top:20px;max-width:760px;background:#E9F6EE;border:1px solid #B7DFC6;color:#14532D;border-radius:14px;padding:18px 20px;line-height:1.5}
   #aviso{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--texto);color:var(--blanco);padding:11px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px);z-index:10}
   #aviso.error{background:var(--rojo)}
 
@@ -100,7 +111,8 @@
     nav button{padding:8px 11px;width:auto}
     .cuenta{border:0;padding:0}
     .cuenta button{margin:0;white-space:nowrap}
-    #tareas{padding:18px 16px 60px}
+    #tareas,#cargar{padding:18px 16px 60px}
+    #fReunion .dos{grid-template-columns:1fr}
     .cinta{padding:16px 16px 12px}
     #rLista{padding:4px 16px 60px;grid-template-columns:1fr}
     .nueva{grid-template-columns:1fr 1fr}
@@ -147,6 +159,25 @@
       </div>
       <div id="rLista"><div class="vacio">Cargando reuniones…</div></div>
     </section>
+    <section id="cargar" class="vista" hidden>
+      <h2>Cargar reunión</h2>
+      <p class="sub">Pegá el resumen de Granola. En unos minutos aparece analizado en Reuniones, con sus tareas.</p>
+      <form id="fReunion">
+        <div class="dos">
+          <label>Título <span>(opcional)</span>
+            <input class="campo" id="rTitulo" maxlength="200" placeholder="Ej.: Reunión semanal de portfolio">
+          </label>
+          <label>Fecha de la reunión
+            <input class="campo" id="rFecha" type="date">
+          </label>
+        </div>
+        <label>Resumen de Granola
+          <textarea class="campo" id="rResumen" required placeholder="Pegá acá el resumen completo…"></textarea>
+        </label>
+        <button class="primario" id="rBoton" type="submit">Enviar reunión</button>
+      </form>
+      <div id="cargado" hidden></div>
+    </section>
     <section id="tareas" class="vista" hidden>
       <h2>Tareas</h2>
       <p class="sub">Lo que sale de cada reunión de portfolio. Los cambios se guardan solos en Airtable.</p>
@@ -181,7 +212,7 @@ const SECCIONES = [
   { id: "reuniones", nombre: "Reuniones",             icono: "🗣️", airtable: "shrN56JPsYiXub7fr" },
   { id: "impacto",   nombre: "Impacto",               icono: "🌱", airtable: "shrQgRn9y3JUkhBDE" },
   { id: "tareas",    nombre: "Tareas",                icono: "✅" },
-  { id: "cargar",    nombre: "Cargar reunión",        icono: "➕", airtable: "shr6Y8neAnHZCctwk" },
+  { id: "cargar",    nombre: "Cargar reunión",        icono: "➕" },
 ];
 const BASE_AIRTABLE = "appSArF5SM32ZNUMk";
 const API = "/.netlify/functions/api";
@@ -343,6 +374,24 @@ async function cargarReuniones() {
     lista.replaceChildren(el("div", { className: "vacio", textContent: "No se pudieron cargar las reuniones: " + e.message }));
   }
 }
+
+// ---------- Cargar reunión ----------
+$("fReunion").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const boton = $("rBoton"), ok = $("cargado");
+  ok.hidden = true;
+  const cuerpo = { title: $("rTitulo").value.trim(), date: $("rFecha").value, summary: $("rResumen").value.trim() };
+  if (cuerpo.summary.length < 50) return avisar("Pegá el resumen completo de Granola", true);
+  boton.disabled = true; boton.textContent = "Enviando…";
+  try {
+    await api("POST", "meetings", cuerpo);
+    ev.target.reset();
+    reunionesCargadas = false; tareasCargadas = false; // para que se vuelvan a leer al abrirlas
+    ok.textContent = "Reunión enviada. El análisis corre cada 30 minutos en horario laboral; cuando termine la vas a ver en Reuniones y sus tareas en Tareas.";
+    ok.hidden = false;
+  } catch (e) { avisar("No se envió: " + e.message, true); }
+  boton.disabled = false; boton.textContent = "Enviar reunión";
+};
 
 // ---------- Tareas ----------
 let tareas = [], empresas = [], tareasCargadas = false;

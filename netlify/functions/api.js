@@ -141,6 +141,22 @@ exports.handler = async (event) => {
         .sort((a, z) => z.date.localeCompare(a.date));
       return json(200, { meetings });
     }
+    if (accion === "meetings" && m === "POST") {
+      // Carga un resumen de Granola: queda en "Nuevo" y el script de Railway lo analiza.
+      let b = {};
+      try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
+      const resumen = String(b.summary || "").trim();
+      if (resumen.length < 50) throw new HttpError(400, "Pegá el resumen completo de Granola");
+      if (resumen.length > 95000) throw new HttpError(400, "El resumen es demasiado largo");
+      if (b.date && !esFecha(b.date)) throw new HttpError(400, "Fecha inválida");
+      const f = { "Granola Summary": resumen, "Status": "Nuevo" };
+      const titulo = String(b.title || "").trim().slice(0, 200);
+      if (titulo) f["Title"] = titulo;
+      if (b.date) f["Meeting Date"] = b.date;
+      const r = await airtable(encodeURIComponent("Meeting Analysis"), { method: "POST", body: JSON.stringify({ fields: f, typecast: true }) });
+      console.log(`${email} cargó la reunión ${r.id}`);
+      return json(200, { ok: true });
+    }
     if (accion !== "tasks") throw new HttpError(404, "No existe");
     const tabla = encodeURIComponent(TASKS);
     let b = {};
