@@ -122,6 +122,25 @@ exports.handler = async (event) => {
     if (!CLIENT_ID || !TOKEN || !BASE) throw new HttpError(503, "Falta configurar el sitio");
     const email = await usuario(event);
     if (accion === "me") return json(200, { email });
+    if (accion === "meetings" && m === "GET") {
+      // "Simple Summary" es opcional: si el campo no existe, se usa el resumen ejecutivo.
+      const base = ["Title", "Meeting Date", "Attendees", "Executive Summary", "Status"];
+      let rs;
+      try { rs = await listar("Meeting Analysis", [...base, "Simple Summary"]); }
+      catch (e) { if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e; rs = await listar("Meeting Analysis", base); }
+      const meetings = rs
+        .filter((x) => x.fields["Status"] === "Procesado")
+        .map((x) => ({
+          id: x.id,
+          title: x.fields["Title"] || "",
+          date: x.fields["Meeting Date"] || "",
+          attendees: x.fields["Attendees"] || "",
+          summary: x.fields["Simple Summary"] || "",
+          detail: x.fields["Simple Summary"] ? "" : x.fields["Executive Summary"] || "",
+        }))
+        .sort((a, z) => z.date.localeCompare(a.date));
+      return json(200, { meetings });
+    }
     if (accion !== "tasks") throw new HttpError(404, "No existe");
     const tabla = encodeURIComponent(TASKS);
     let b = {};

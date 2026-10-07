@@ -78,6 +78,16 @@
   .borrar{border:0;background:none;cursor:pointer;color:var(--gris);font-size:18px;line-height:1;padding:8px 6px;border-radius:7px}
   .borrar:hover{color:var(--rojo);background:var(--rojo-fondo)}
   .vacio{padding:36px 16px;text-align:center;color:var(--gris)}
+  /* ---- Reuniones ---- */
+  .cinta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:20px 28px 14px}
+  .cinta h2{font-size:26px;letter-spacing:-.02em}
+  #rLista{flex:1;overflow:auto;padding:4px 28px 60px;display:grid;gap:16px;align-content:start;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
+  .reu{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:20px 22px}
+  .reu .fecha{font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--bordo)}
+  .reu h3{font-size:18px;margin-top:6px;line-height:1.3}
+  .reu .quienes{margin-top:12px;font-size:14px;color:var(--gris);line-height:1.45}
+  .reu .quienes b{color:var(--texto);font-weight:600}
+  .reu .texto{margin-top:12px;line-height:1.6;white-space:pre-line}
   #aviso{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--texto);color:var(--blanco);padding:11px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px);z-index:10}
   #aviso.error{background:var(--rojo)}
 
@@ -91,6 +101,8 @@
     .cuenta{border:0;padding:0}
     .cuenta button{margin:0;white-space:nowrap}
     #tareas{padding:18px 16px 60px}
+    .cinta{padding:16px 16px 12px}
+    #rLista{padding:4px 16px 60px;grid-template-columns:1fr}
     .nueva{grid-template-columns:1fr 1fr}
     .nueva .tarea-nueva{grid-column:1/-1}
     .fila.cabecera{display:none}
@@ -128,6 +140,13 @@
     <div class="cuenta"><span id="correo"></span><button id="salir" type="button">Salir</button></div>
   </aside>
   <main id="contenido">
+    <section id="reuniones" class="vista" hidden>
+      <div class="cinta">
+        <h2>Reuniones</h2>
+        <div class="pestanas" id="rModo"></div>
+      </div>
+      <div id="rLista"><div class="vacio">Cargando reuniones…</div></div>
+    </section>
     <section id="tareas" class="vista" hidden>
       <h2>Tareas</h2>
       <p class="sub">Lo que sale de cada reunión de portfolio. Los cambios se guardan solos en Airtable.</p>
@@ -159,7 +178,7 @@
 const SECCIONES = [
   { id: "resumen",   nombre: "Resumen",               icono: "📊", airtable: "shrad8zEe7O6ovIlF" },
   { id: "empresas",  nombre: "Ficha de empresa",      icono: "🏢", airtable: "shrLKfsJvkQVDP6Xf" },
-  { id: "reuniones", nombre: "Análisis de reuniones", icono: "🗣️", airtable: "shrN56JPsYiXub7fr" },
+  { id: "reuniones", nombre: "Reuniones",             icono: "🗣️", airtable: "shrN56JPsYiXub7fr" },
   { id: "tareas",    nombre: "Tareas",                icono: "✅" },
 ];
 const BASE_AIRTABLE = "appSArF5SM32ZNUMk";
@@ -277,9 +296,51 @@ function abrir(id) {
       [el("iframe", { src: `https://airtable.com/embed/${BASE_AIRTABLE}/${s.airtable}`, title: s.nombre, loading: "lazy" })]));
   }
   if (s.id === "tareas" && !tareasCargadas) cargarTareas();
+  if (s.id === "reuniones") { modoReuniones(rModo); if (!reunionesCargadas) cargarReuniones(); }
   history.replaceState(null, "", "#" + s.id);
 }
 $("salir").onclick = () => cerrar("");
+
+// ---------- Reuniones ----------
+// "resumen": tarjetas propias con quién participó y de qué se habló. "completo": la página de Airtable.
+let rModo = "resumen", reunionesCargadas = false;
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+const fechaLarga = (f) => { const [a, m, d] = f.split("-").map(Number); return a && m && d ? `${d} de ${MESES[m - 1]} de ${a}` : ""; };
+
+function modoReuniones(modo) {
+  rModo = modo;
+  const sec = $("reuniones"), s = SECCIONES.find((x) => x.id === "reuniones");
+  $("rModo").replaceChildren(...[["resumen", "Resumen"], ["completo", "Análisis completo"]].map(([id, nombre]) =>
+    el("button", { type: "button", className: modo === id ? "activo" : "", textContent: nombre, onclick: () => modoReuniones(id) })));
+  let marco = sec.querySelector("iframe");
+  if (modo === "completo" && !marco) {
+    marco = el("iframe", { src: `https://airtable.com/embed/${BASE_AIRTABLE}/${s.airtable}`, title: s.nombre });
+    sec.append(marco);
+  }
+  if (marco) marco.hidden = modo !== "completo";
+  $("rLista").hidden = modo !== "resumen";
+}
+
+async function cargarReuniones() {
+  const lista = $("rLista");
+  try {
+    const j = await api("GET", "meetings");
+    reunionesCargadas = true;
+    if (!j.meetings.length) return lista.replaceChildren(el("div", { className: "vacio", textContent: "Todavía no hay reuniones analizadas." }));
+    lista.replaceChildren(...j.meetings.map((r) => {
+      const titulo = r.title.replace(/^\d{4}-\d{2}-\d{2}\s*·\s*/, "") || "Reunión de portfolio";
+      const t = el("article", { className: "reu" }, [
+        el("div", { className: "fecha", textContent: fechaLarga(r.date) }),
+        el("h3", { textContent: titulo }),
+      ]);
+      if (r.attendees) t.append(el("p", { className: "quienes" }, [el("b", { textContent: "Participaron: " }), r.attendees]));
+      t.append(el("p", { className: "texto", textContent: r.summary || r.detail || "Sin resumen." }));
+      return t;
+    }));
+  } catch (e) {
+    lista.replaceChildren(el("div", { className: "vacio", textContent: "No se pudieron cargar las reuniones: " + e.message }));
+  }
+}
 
 // ---------- Tareas ----------
 let tareas = [], empresas = [], tareasCargadas = false;
