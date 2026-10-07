@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alaya Capital · Portfolio 360</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --bordo:#8E3B4F; --bordo-osc:#5E2232; --crema:#F7F3EF; --texto:#1F1A1C;
+    --gris:#6B6266; --borde:#E6DDD8; --blanco:#FFFFFF; --rojo:#B42318; --rojo-fondo:#FDECEA; --verde:#1E7B4B;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--crema);color:var(--texto);font-size:15px}
+  button,input,select,textarea{font:inherit;color:inherit}
+  [hidden]{display:none!important}
+
+  /* ---- Acceso ---- */
+  #acceso{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,var(--bordo-osc),var(--bordo))}
+  .caja{background:var(--blanco);border-radius:18px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+  .marca{font-size:13px;letter-spacing:.18em;text-transform:uppercase;font-weight:600;color:var(--bordo)}
+  .caja h1{font-size:30px;margin-top:8px;letter-spacing:-.02em}
+  .caja p{color:var(--gris);margin-top:10px;line-height:1.5}
+  #botonGoogle{display:flex;justify-content:center;margin-top:26px;min-height:44px}
+  #avisoAcceso{margin-top:16px;color:var(--rojo);font-size:14px;line-height:1.45}
+  .enlaces{margin-top:22px;display:grid;gap:10px;text-align:left}
+  .enlaces a{display:block;padding:12px 14px;border:1px solid var(--borde);border-radius:10px;color:var(--bordo);font-weight:600;text-decoration:none}
+  .enlaces a:hover{border-color:var(--bordo)}
+
+  /* ---- App ---- */
+  #app{height:100%;display:flex}
+  aside{width:232px;flex:none;background:linear-gradient(180deg,var(--bordo-osc),var(--bordo));color:var(--blanco);display:flex;flex-direction:column;padding:22px 14px}
+  aside .marca{color:rgba(255,255,255,.75);padding:0 10px}
+  aside h1{font-size:21px;padding:4px 10px 0;letter-spacing:-.01em}
+  nav{margin-top:26px;display:flex;flex-direction:column;gap:4px;flex:1}
+  nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:rgba(255,255,255,.85);padding:11px 12px;border-radius:10px;cursor:pointer;font-weight:500;white-space:nowrap}
+  nav button:hover{background:rgba(255,255,255,.1)}
+  nav button.activo{background:var(--blanco);color:var(--bordo-osc);font-weight:600}
+  .cuenta{font-size:13px;padding:12px 10px 0;border-top:1px solid rgba(255,255,255,.2);overflow-wrap:anywhere}
+  .cuenta span{display:block}
+  .cuenta button{margin-top:8px;background:none;border:1px solid rgba(255,255,255,.4);color:var(--blanco);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+  main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .vista{flex:1;min-height:0;display:flex;flex-direction:column}
+  .vista iframe{flex:1;width:100%;border:0;background:var(--blanco)}
+
+  /* ---- Tareas ---- */
+  #tareas{overflow:auto;padding:26px 28px 60px}
+  #tareas h2{font-size:26px;letter-spacing:-.02em}
+  .sub{color:var(--gris);margin-top:4px}
+  .nueva{margin-top:20px;background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:14px;display:grid;grid-template-columns:minmax(200px,1fr) 170px 150px 150px auto;gap:10px}
+  .campo{border:1px solid var(--borde);border-radius:9px;padding:9px 10px;background:var(--blanco);width:100%;min-width:0}
+  .campo:focus{outline:2px solid var(--bordo);outline-offset:-1px}
+  .primario{background:var(--bordo);color:var(--blanco);border:0;border-radius:9px;padding:9px 18px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .primario:hover{background:var(--bordo-osc)}
+  .primario:disabled{opacity:.6;cursor:default}
+  .barra{margin-top:22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .pestanas{display:flex;background:var(--blanco);border:1px solid var(--borde);border-radius:10px;padding:3px;flex-wrap:wrap}
+  .pestanas button{border:0;background:none;padding:7px 13px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--gris)}
+  .pestanas button.activo{background:var(--bordo);color:var(--blanco)}
+  .pestanas b{font-weight:600;margin-left:5px;opacity:.85}
+  .barra .campo{width:auto;max-width:190px}
+  .barra input[type=search]{flex:1;min-width:150px;max-width:none}
+  #lista{margin-top:14px;background:var(--blanco);border:1px solid var(--borde);border-radius:14px;overflow:hidden}
+  .fila{display:grid;grid-template-columns:34px minmax(200px,1fr) 170px 150px 150px 34px;gap:10px;align-items:start;padding:11px 14px;border-top:1px solid var(--borde)}
+  .fila:first-child{border-top:0}
+  .fila.cabecera{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--gris);font-weight:600;background:#FBF8F6;align-items:center}
+  .fila input[type=checkbox]{width:19px;height:19px;margin-top:8px;accent-color:var(--bordo);cursor:pointer}
+  .fila .campo{border-color:transparent;background:transparent;padding:7px 8px}
+  .fila .campo:hover{border-color:var(--borde)}
+  .fila textarea.campo{resize:none;overflow:hidden;line-height:1.4;display:block}
+  .fila.hecha textarea{text-decoration:line-through;color:var(--gris)}
+  .fila.vencida input[type=date]{color:var(--rojo);font-weight:600;background:var(--rojo-fondo)}
+  .reunion{font-size:12px;color:var(--gris);padding:0 8px 2px}
+  .borrar{border:0;background:none;cursor:pointer;color:var(--gris);font-size:18px;line-height:1;padding:8px 6px;border-radius:7px}
+  .borrar:hover{color:var(--rojo);background:var(--rojo-fondo)}
+  .vacio{padding:36px 16px;text-align:center;color:var(--gris)}
+  #aviso{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--texto);color:var(--blanco);padding:11px 18px;border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100% - 32px);z-index:10}
+  #aviso.error{background:var(--rojo)}
+
+  @media (max-width:900px){
+    #app{flex-direction:column}
+    aside{width:auto;flex-direction:row;align-items:center;padding:10px 12px;gap:10px}
+    aside .marca,.cuenta span{display:none}
+    aside h1{font-size:16px;padding:0;white-space:nowrap}
+    nav{margin:0;flex-direction:row;overflow-x:auto;gap:4px}
+    nav button{padding:8px 11px;width:auto}
+    .cuenta{border:0;padding:0}
+    .cuenta button{margin:0;white-space:nowrap}
+    #tareas{padding:18px 16px 60px}
+    .nueva{grid-template-columns:1fr 1fr}
+    .nueva .tarea-nueva{grid-column:1/-1}
+    .fila.cabecera{display:none}
+    .fila{grid-template-columns:30px 1fr 1fr 34px;row-gap:2px}
+    .fila .c-tarea{grid-column:2/4}
+    .fila .c-borrar{grid-column:4;grid-row:1}
+    .fila .c-empresa{grid-column:2/4}
+    .fila .c-owner{grid-column:2}
+    .fila .c-fecha{grid-column:3}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Acceso ============ -->
+<div id="acceso">
+  <div class="caja">
+    <div class="marca">Alaya Capital</div>
+    <h1>Portfolio 360</h1>
+    <p id="textoAcceso">Entrá con tu cuenta de Alaya para ver el portfolio y gestionar las tareas.</p>
+    <div id="botonGoogle"></div>
+    <div id="avisoAcceso" hidden></div>
+    <div id="enlaces" class="enlaces" hidden></div>
+  </div>
+</div>
+
+<!-- ============ App ============ -->
+<div id="app" hidden>
+  <aside>
+    <div>
+      <div class="marca">Alaya Capital</div>
+      <h1>Portfolio 360</h1>
+    </div>
+    <nav id="menu"></nav>
+    <div class="cuenta"><span id="correo"></span><button id="salir" type="button">Salir</button></div>
+  </aside>
+  <main id="contenido">
+    <section id="tareas" class="vista" hidden>
+      <h2>Tareas</h2>
+      <p class="sub">Lo que sale de cada reunión de portfolio. Los cambios se guardan solos en Airtable.</p>
+
+      <form id="nueva" class="nueva">
+        <input class="campo tarea-nueva" id="nTarea" placeholder="Nueva tarea…" maxlength="2000" required aria-label="Nueva tarea">
+        <select class="campo" id="nEmpresa" aria-label="Empresa"></select>
+        <input class="campo" id="nOwner" placeholder="Responsable" list="owners" maxlength="120" aria-label="Responsable">
+        <input class="campo" id="nFecha" type="date" aria-label="Fecha de vencimiento">
+        <button class="primario" id="nBoton" type="submit">Agregar</button>
+      </form>
+      <datalist id="owners"></datalist>
+
+      <div class="barra">
+        <div class="pestanas" id="pestanas"></div>
+        <select class="campo" id="fOwner" aria-label="Filtrar por responsable"></select>
+        <select class="campo" id="fEmpresa" aria-label="Filtrar por empresa"></select>
+        <input class="campo" id="fBuscar" type="search" placeholder="Buscar…" aria-label="Buscar tareas">
+      </div>
+      <div id="lista"><div class="vacio">Cargando tareas…</div></div>
+    </section>
+  </main>
+</div>
+<div id="aviso" hidden></div>
+
+<script>
+// ---------- Secciones del menú ----------
+// Para sumar un dashboard: agregá una línea con el código "shr…" del link público de Airtable.
+const SECCIONES = [
+  { id: "resumen",   nombre: "Resumen",               icono: "📊", airtable: "shrad8zEe7O6ovIlF" },
+  { id: "empresas",  nombre: "Ficha de empresa",      icono: "🏢", airtable: "shrLKfsJvkQVDP6Xf" },
+  { id: "reuniones", nombre: "Análisis de reuniones", icono: "🗣️", airtable: "shrN56JPsYiXub7fr" },
+  { id: "tareas",    nombre: "Tareas",                icono: "✅" },
+];
+const BASE_AIRTABLE = "appSArF5SM32ZNUMk";
+const API = "/.netlify/functions/api";
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, hijos = []) => {
+  const e = Object.assign(document.createElement(tag), props);
+  hijos.forEach((h) => e.append(h));
+  return e;
+};
+
+// ---------- Sesión ----------
+let token = "";
+let correo = "";
+const guardarSesion = (t) => { try { t ? sessionStorage.setItem("p360", t) : sessionStorage.removeItem("p360"); } catch (e) {} };
+const leerSesion = () => { try { return sessionStorage.getItem("p360") || ""; } catch (e) { return ""; } };
+function datosToken(t) {
+  try {
+    const b = t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(decodeURIComponent(escape(atob(b))));
+  } catch (e) { return null; }
+}
+
+async function api(metodo, accion, cuerpo) {
+  const r = await fetch(`${API}?action=${accion}`, {
+    method: metodo,
+    headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+  });
+  let j = {};
+  try { j = await r.json(); } catch (e) {}
+  if (r.status === 401 && token) { cerrar("Tu sesión venció. Entrá de nuevo."); throw new Error("Sesión vencida"); }
+  if (!r.ok) throw new Error(j.error || "No se pudo conectar");
+  return j;
+}
+
+function avisar(texto, error) {
+  const a = $("aviso");
+  a.textContent = texto; a.className = error ? "error" : ""; a.hidden = false;
+  clearTimeout(avisar.t); avisar.t = setTimeout(() => (a.hidden = true), error ? 5000 : 2200);
+}
+function avisoAcceso(texto) { const a = $("avisoAcceso"); a.textContent = texto || ""; a.hidden = !texto; }
+
+function cerrar(mensaje) {
+  token = ""; correo = ""; guardarSesion("");
+  if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
+  $("app").hidden = true; $("acceso").hidden = false;
+  avisoAcceso(mensaje || "");
+}
+
+async function entrar(t) {
+  token = t;
+  try {
+    const yo = await api("GET", "me");
+    correo = yo.email; guardarSesion(t);
+    $("correo").textContent = correo;
+    $("acceso").hidden = true; $("app").hidden = false;
+    abrir(location.hash.slice(1) || SECCIONES[0].id);
+  } catch (e) {
+    token = ""; guardarSesion("");
+    avisoAcceso(e.message === "Sesión vencida" ? "" : e.message);
+  }
+}
+
+function esperarGoogle() {
+  return new Promise((ok, mal) => {
+    let n = 0;
+    (function mirar() {
+      if (window.google && google.accounts && google.accounts.id) return ok();
+      if (++n > 100) return mal(new Error("No se pudo cargar el acceso de Google"));
+      setTimeout(mirar, 100);
+    })();
+  });
+}
+
+async function iniciar() {
+  let cfg;
+  try { cfg = await api("GET", "config"); } catch (e) { cfg = { listo: false }; }
+  if (!cfg.listo) {
+    // Sitio todavía sin configurar: se muestran los links directos a Airtable.
+    $("textoAcceso").textContent = "El acceso todavía se está configurando. Mientras tanto podés abrir cada página en Airtable:";
+    const caja = $("enlaces"); caja.hidden = false;
+    SECCIONES.filter((s) => s.airtable).forEach((s) =>
+      caja.append(el("a", { href: `https://airtable.com/${BASE_AIRTABLE}/${s.airtable}`, target: "_blank", rel: "noopener", textContent: `${s.icono}  ${s.nombre} →` })));
+    return;
+  }
+  const guardado = leerSesion();
+  const d = guardado && datosToken(guardado);
+  if (d && d.exp * 1000 > Date.now() + 60000) entrar(guardado);
+  try {
+    await esperarGoogle();
+    google.accounts.id.initialize({
+      client_id: cfg.clientId, hd: cfg.domain, auto_select: true,
+      callback: (r) => { avisoAcceso(""); entrar(r.credential); },
+    });
+    google.accounts.id.renderButton($("botonGoogle"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", locale: "es" });
+  } catch (e) { avisoAcceso(e.message); }
+}
+
+// ---------- Menú y vistas ----------
+const menu = $("menu");
+SECCIONES.forEach((s) => {
+  menu.append(el("button", { type: "button", id: "m-" + s.id, onclick: () => abrir(s.id) },
+    [el("span", { textContent: s.icono }), el("span", { textContent: s.nombre })]));
+});
+function abrir(id) {
+  const s = SECCIONES.find((x) => x.id === id) || SECCIONES[0];
+  SECCIONES.forEach((x) => {
+    $("m-" + x.id).classList.toggle("activo", x.id === s.id);
+    const v = $(x.id); if (v) v.hidden = x.id !== s.id;
+  });
+  if (s.airtable && !$(s.id)) {
+    // Los dashboards de Airtable se cargan la primera vez que se abren y quedan en memoria.
+    $("contenido").append(el("section", { id: s.id, className: "vista" },
+      [el("iframe", { src: `https://airtable.com/embed/${BASE_AIRTABLE}/${s.airtable}`, title: s.nombre, loading: "lazy" })]));
+  }
+  if (s.id === "tareas" && !tareasCargadas) cargarTareas();
+  history.replaceState(null, "", "#" + s.id);
+}
+$("salir").onclick = () => cerrar("");
+
+// ---------- Tareas ----------
+let tareas = [], empresas = [], tareasCargadas = false;
+const filtro = { pestana: "pendientes", owner: "", empresa: "", q: "" };
+const hoy = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+const nombreEmpresa = (id) => (empresas.find((e) => e.id === id) || {}).name || "";
+const vencida = (t) => !t.done && t.due && t.due < hoy();
+const PESTANAS = [
+  ["pendientes", "Pendientes", (t) => !t.done],
+  ["vencidas", "Vencidas", vencida],
+  ["hechas", "Hechas", (t) => t.done],
+  ["todas", "Todas", () => true],
+];
+
+async function cargarTareas() {
+  try {
+    const j = await api("GET", "tasks");
+    tareas = j.tasks; empresas = j.companies; tareasCargadas = true;
+    llenarEmpresas($("nEmpresa"), "Empresa (opcional)");
+    pintar();
+  } catch (e) {
+    $("lista").replaceChildren(el("div", { className: "vacio", textContent: "No se pudieron cargar las tareas: " + e.message }));
+  }
+}
+function llenarEmpresas(select, vacio, valor) {
+  select.replaceChildren(el("option", { value: "", textContent: vacio }),
+    ...empresas.map((e) => el("option", { value: e.id, textContent: e.name })));
+  select.value = valor || "";
+}
+function opciones(select, vacio, valores, actual) {
+  select.replaceChildren(el("option", { value: "", textContent: vacio }),
+    ...valores.map((v) => el("option", { value: v[0], textContent: v[1] })));
+  select.value = valores.some((v) => v[0] === actual) ? actual : "";
+  return select.value;
+}
+
+function pintar() {
+  // filtros
+  const owners = [...new Set(tareas.map((t) => t.owner).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  $("owners").replaceChildren(...owners.map((o) => el("option", { value: o })));
+  filtro.owner = opciones($("fOwner"), "Todos los responsables", owners.map((o) => [o, o]), filtro.owner);
+  const conTareas = empresas.filter((e) => tareas.some((t) => t.companyId === e.id));
+  filtro.empresa = opciones($("fEmpresa"), "Todas las empresas", conTareas.map((e) => [e.id, e.name]), filtro.empresa);
+
+  const q = filtro.q.trim().toLowerCase();
+  const base = tareas.filter((t) =>
+    (!filtro.owner || t.owner === filtro.owner) &&
+    (!filtro.empresa || t.companyId === filtro.empresa) &&
+    (!q || (t.task + " " + t.owner + " " + nombreEmpresa(t.companyId)).toLowerCase().includes(q)));
+
+  $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
+    el("button", { type: "button", className: filtro.pestana === id ? "activo" : "", onclick: () => { filtro.pestana = id; pintar(); } },
+      [nombre, el("b", { textContent: base.filter(f).length })])));
+
+  const f = PESTANAS.find((p) => p[0] === filtro.pestana)[2];
+  const visibles = base.filter(f).sort((a, b) =>
+    (a.done - b.done) || (a.due || "9999").localeCompare(b.due || "9999") || (b.meetingDate || "").localeCompare(a.meetingDate || ""));
+
+  const lista = $("lista");
+  if (!visibles.length) {
+    lista.replaceChildren(el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros." : "Todavía no hay tareas." }));
+    return;
+  }
+  const cab = el("div", { className: "fila cabecera" });
+  ["", "Tarea", "Empresa", "Responsable", "Vence", ""].forEach((t) => cab.append(el("div", { textContent: t })));
+  lista.replaceChildren(cab, ...visibles.map(fila));
+  lista.querySelectorAll("textarea").forEach(ajustar);
+}
+function ajustar(t) { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
+
+function fila(t) {
+  const f = el("div", { className: "fila" + (t.done ? " hecha" : "") + (vencida(t) ? " vencida" : "") });
+  const hecho = el("input", { type: "checkbox", checked: t.done, title: "Marcar como hecha" });
+  hecho.setAttribute("aria-label", "Hecha");
+  hecho.onchange = () => cambiar(t, { done: hecho.checked });
+
+  const texto = el("textarea", { className: "campo", rows: 1, value: t.task, maxLength: 2000 });
+  texto.setAttribute("aria-label", "Tarea");
+  texto.oninput = () => ajustar(texto);
+  texto.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); texto.blur(); } };
+  texto.onchange = () => {
+    const v = texto.value.trim();
+    if (!v) { texto.value = t.task; ajustar(texto); return avisar("La tarea no puede quedar vacía", true); }
+    if (v !== t.task) cambiar(t, { task: v });
+  };
+  const cTarea = el("div", { className: "c-tarea" }, [texto]);
+  if (t.meetingDate) cTarea.append(el("div", { className: "reunion", textContent: "Reunión del " + t.meetingDate.split("-").reverse().join("/") }));
+
+  const empresa = el("select", { className: "campo" });
+  empresa.setAttribute("aria-label", "Empresa");
+  llenarEmpresas(empresa, "Sin empresa", t.companyId);
+  empresa.onchange = () => cambiar(t, { companyId: empresa.value });
+
+  const owner = el("input", { className: "campo", value: t.owner, placeholder: "Sin responsable", maxLength: 120 });
+  owner.setAttribute("list", "owners"); owner.setAttribute("aria-label", "Responsable");
+  owner.onchange = () => { const v = owner.value.trim(); if (v !== t.owner) cambiar(t, { owner: v }); };
+
+  const fecha = el("input", { className: "campo", type: "date", value: t.due });
+  fecha.setAttribute("aria-label", "Fecha de vencimiento");
+  fecha.onchange = () => cambiar(t, { due: fecha.value });
+
+  const borrar = el("button", { type: "button", className: "borrar", textContent: "×", title: "Borrar tarea" });
+  borrar.setAttribute("aria-label", "Borrar tarea");
+  borrar.onclick = () => eliminar(t);
+
+  f.append(el("div", {}, [hecho]), cTarea, el("div", { className: "c-empresa" }, [empresa]),
+    el("div", { className: "c-owner" }, [owner]), el("div", { className: "c-fecha" }, [fecha]),
+    el("div", { className: "c-borrar" }, [borrar]));
+  return f;
+}
+
+async function cambiar(t, cambios) {
+  const antes = Object.assign({}, t);
+  Object.assign(t, cambios); pintar();
+  try {
+    const j = await api("PATCH", "tasks", Object.assign({ id: t.id }, cambios));
+    Object.assign(t, j.task); avisar("Guardado");
+  } catch (e) {
+    Object.assign(t, antes); avisar("No se guardó: " + e.message, true);
+  }
+  pintar();
+}
+
+async function eliminar(t) {
+  if (!window.confirm("¿Borrar esta tarea?\n\n" + t.task)) return;
+  const i = tareas.indexOf(t);
+  tareas.splice(i, 1); pintar();
+  try { await api("DELETE", "tasks", { id: t.id }); avisar("Tarea borrada"); }
+  catch (e) { tareas.splice(i, 0, t); pintar(); avisar("No se borró: " + e.message, true); }
+}
+
+$("nueva").onsubmit = async (ev) => {
+  ev.preventDefault();
+  const boton = $("nBoton");
+  const cuerpo = { task: $("nTarea").value.trim(), companyId: $("nEmpresa").value, owner: $("nOwner").value.trim(), due: $("nFecha").value };
+  if (!cuerpo.task) return;
+  boton.disabled = true;
+  try {
+    const j = await api("POST", "tasks", cuerpo);
+    tareas.push(j.task);
+    $("nTarea").value = ""; $("nFecha").value = "";
+    if (filtro.pestana === "hechas" || filtro.pestana === "vencidas") filtro.pestana = "pendientes";
+    pintar(); avisar("Tarea agregada");
+  } catch (e) { avisar("No se agregó: " + e.message, true); }
+  boton.disabled = false;
+};
+$("fOwner").onchange = (e) => { filtro.owner = e.target.value; pintar(); };
+$("fEmpresa").onchange = (e) => { filtro.empresa = e.target.value; pintar(); };
+$("fBuscar").oninput = (e) => { filtro.q = e.target.value; pintar(); };
+
+window.addEventListener("resize", () => document.querySelectorAll("#lista textarea").forEach(ajustar));
+
+iniciar();
+</script>
+</body>
+</html>
