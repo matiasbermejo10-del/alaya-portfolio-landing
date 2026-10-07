@@ -69,6 +69,16 @@ async function listar(tabla, campos) {
   return out;
 }
 
+const ESTADOS = ["Pendiente", "En curso", "Esperando respuesta", "Retomar en reunión", "Hecha", "Descartada"];
+const CERRADOS = ["Hecha", "Descartada"];
+// El estado manda, pero si alguien tildó o destildó "Done" desde Airtable se respeta eso.
+function estado(f) {
+  const s = ESTADOS.includes(f["Status"]) ? f["Status"] : "";
+  const done = !!f["Done"];
+  if (done) return CERRADOS.includes(s) ? s : "Hecha";
+  return s && !CERRADOS.includes(s) ? s : "Pendiente";
+}
+
 const aTarea = (x) => ({
   id: x.id,
   task: x.fields["Task"] || "",
@@ -76,7 +86,7 @@ const aTarea = (x) => ({
   owner: x.fields["Owner"] || "",
   due: x.fields["Due Date"] || "",
   meetingDate: x.fields["Meeting Date"] || "",
-  done: !!x.fields["Done"],
+  status: estado(x.fields),
 });
 
 const esId = (s) => typeof s === "string" && /^rec[A-Za-z0-9]{14}$/.test(s);
@@ -89,7 +99,11 @@ function campos(b) {
     if (!t) throw new HttpError(400, "La tarea no puede quedar vacía");
     f["Task"] = t;
   }
-  if ("done" in b) f["Done"] = !!b.done;
+  if ("status" in b) {
+    if (!ESTADOS.includes(b.status)) throw new HttpError(400, "Estado inválido");
+    f["Status"] = b.status;
+    f["Done"] = CERRADOS.includes(b.status); // mantiene al día alertas e interfaces de Airtable
+  }
   if ("owner" in b) f["Owner"] = String(b.owner || "").trim().slice(0, 120);
   if ("due" in b) {
     if (b.due && !esFecha(b.due)) throw new HttpError(400, "Fecha inválida");
@@ -102,15 +116,18 @@ function campos(b) {
   return f;
 }
 
-// Guarda quién hizo el cambio si la tabla tiene el campo "Updated By"; si no, guarda igual.
+// "Updated By" y "Status" son campos opcionales: si alguno no existe en la tabla, se guarda sin él.
 async function guardar(metodo, ruta, fields, email) {
-  const cuerpo = (f) => JSON.stringify({ fields: f, typecast: true });
-  try {
-    return await airtable(ruta, { method: metodo, body: cuerpo({ ...fields, [AUDIT_FIELD]: email }) });
-  } catch (e) {
-    if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e;
-    return airtable(ruta, { method: metodo, body: cuerpo(fields) });
+  const f = { ...fields, [AUDIT_FIELD]: email };
+  for (const opcional of [null, AUDIT_FIELD, "Status"]) {
+    if (opcional) delete f[opcional];
+    try {
+      return await airtable(ruta, { method: metodo, body: JSON.stringify({ fields: f, typecast: true }) });
+    } catch (e) {
+      if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e;
+    }
   }
+  throw new HttpError(502, "Airtable: falta un campo en la tabla de tareas");
 }
 
 exports.handler = async (event) => {
@@ -164,8 +181,12 @@ exports.handler = async (event) => {
       try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
     }
     if (m === "GET") {
+      const base = ["Task", "Company", "Owner", "Due Date", "Meeting Date", "Done"];
       const [ts, cs] = await Promise.all([
-        listar(TASKS, ["Task", "Company", "Owner", "Due Date", "Meeting Date", "Done"]),
+        listar(TASKS, [...base, "Status"]).catch((e) => {
+          if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e;
+          return listar(TASKS, base);
+        }),
         listar("Portfolio", ["Name"]),
       ]);
       const companies = cs
