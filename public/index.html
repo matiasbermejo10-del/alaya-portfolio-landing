@@ -73,6 +73,13 @@
   .pestanas button.activo{background:var(--bordo);color:var(--blanco)}
   .pestanas b{font-weight:600;margin-left:5px;opacity:.85}
   .barra .campo{width:auto;max-width:180px}
+  .campo.filtro-on{background:#16794A;color:#fff;border-color:#16794A;font-weight:600}
+  .campo.filtro-on option{background:#fff;color:var(--texto);font-weight:400}
+  input.campo.filtro-on::placeholder{color:rgba(255,255,255,.8)}
+  .persona.activo.verde{background:#16794A;border-color:#16794A}
+  .pestanas button.activo.verde{background:#16794A}
+  #filtrosOn{margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#E3F4EA;border:1px solid #9CD3B4;color:#14532D;border-radius:12px;padding:10px 14px;font-size:14px;font-weight:500}
+  #filtrosOn button{border:0;background:#16794A;color:#fff;border-radius:8px;padding:7px 14px;font-weight:600;cursor:pointer;white-space:nowrap}
   .barra input[type=search]{flex:1;min-width:150px;max-width:none}
   #lista{margin-top:14px}
   .grupo{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;overflow:hidden;margin-bottom:14px}
@@ -292,12 +299,12 @@
 
       <div class="barra">
         <div class="pestanas" id="pestanas"></div>
-        <select class="campo" id="fEstado" aria-label="Filtrar por estado"></select>
         <select class="campo" id="fPrioridad" aria-label="Filtrar por prioridad"></select>
         <select class="campo" id="fProyecto" aria-label="Filtrar por proyecto"></select>
         <select class="campo" id="fEmpresa" aria-label="Filtrar por empresa"></select>
         <input class="campo" id="fBuscar" type="search" placeholder="Buscar…" aria-label="Buscar tareas">
       </div>
+      <div id="filtrosOn" hidden></div>
       <div id="lista"><div class="vacio">Cargando tareas…</div></div>
     </section>
   </main>
@@ -520,10 +527,11 @@ const claseE = (s) => "pill e" + Math.max(0, ESTADOS.indexOf(s));
 const claseP = (p) => "pill p" + (PRIORIDADES.includes(p) ? PRIORIDADES.indexOf(p) : 5);
 const PESTANAS = [
   ["abiertas", "Abiertas", (t) => !cerrada(t)],
+  ...ESTADOS.map((e) => [e, e, (t) => t.status === e]),
   ["vencidas", "Vencidas", vencida],
-  ["cerradas", "Done", cerrada],
   ["todas", "Todas", () => true],
 ];
+const PESTANA_INICIAL = "abiertas";
 const ordenar = (a, b) => (cerrada(a) - cerrada(b)) || (rangoP(a) - rangoP(b)) ||
   (a.due || "9999").localeCompare(b.due || "9999") || a.task.localeCompare(b.task, "es");
 
@@ -608,7 +616,6 @@ function pintar() {
     onclick: () => { vista = id; try { localStorage.setItem("p360-vista", id); } catch (e) {} pintar(); },
   })));
 
-  filtro.estado = llenarLista($("fEstado"), "Todos los estados", ESTADOS, filtro.estado);
   filtro.prioridad = llenarLista($("fPrioridad"), "Todas las prioridades", [...PRIORIDADES, ["-", "Sin prioridad"]], filtro.prioridad);
   const usados = (k) => new Set(tareas.map((t) => t[k]).filter(Boolean));
   const pUsados = usados("projectId"), eUsadas = usados("companyId");
@@ -618,7 +625,6 @@ function pintar() {
 
   const q = plano(filtro.q);
   const base = tareas.filter((t) =>
-    (!filtro.estado || t.status === filtro.estado) &&
     (!filtro.prioridad || (filtro.prioridad === "-" ? !t.priority : t.priority === filtro.prioridad)) &&
     (!filtro.proyecto || (filtro.proyecto === "-" ? !t.projectId : t.projectId === filtro.proyecto)) &&
     (!filtro.empresa || t.companyId === filtro.empresa) &&
@@ -628,7 +634,7 @@ function pintar() {
   const abiertas = base.filter((t) => !cerrada(t));
   const conteo = (n) => abiertas.filter((t) => (n === "" ? !t.owner : plano(t.owner) === plano(n))).length;
   const chip = (valor, nombre, num, ini) => el("button", {
-    type: "button", className: "persona" + (filtro.owner === valor ? " activo" : ""),
+    type: "button", className: "persona" + (filtro.owner === valor ? " activo" + (valor !== null ? " verde" : "") : ""),
     onclick: () => { filtro.owner = filtro.owner === valor ? null : valor; pintar(); },
   }, [el("span", { className: "ini", textContent: ini }), nombre, el("span", { className: "num", textContent: num })]);
   const sueltos = [...new Set(tareas.map((t) => t.owner).filter((o) => o && !equipo.some((p) => plano(p) === plano(o))))];
@@ -642,8 +648,9 @@ function pintar() {
   // En Kanban las columnas ya separan por estado, así que no se usan las pestañas.
   $("pestanas").hidden = vista === "kanban" || vista === "calendario";
   $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
-    el("button", { type: "button", className: filtro.pestana === id ? "activo" : "", onclick: () => { filtro.pestana = id; pintar(); } },
+    el("button", { type: "button", className: filtro.pestana === id ? "activo" + (id !== PESTANA_INICIAL ? " verde" : "") : "", onclick: () => { filtro.pestana = id; pintar(); } },
       [nombre, el("b", { textContent: porPersona.filter(f).length })])));
+  marcarFiltros();
 
   const lista = $("lista");
   if (vista === "kanban") return pintarKanban(lista, porPersona);
@@ -652,7 +659,9 @@ function pintar() {
     return pintarColumnas(lista, porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]), vista === "prioridad" ? "priority" : "projectId");
   const visibles = porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]).sort(ordenar);
   if (!visibles.length) {
-    lista.replaceChildren(el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros." : "Todavía no hay tareas." }));
+    const v = el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros. " : "Todavía no hay tareas." });
+    if (tareas.length && !$("filtrosOn").hidden) v.append(el("button", { type: "button", className: "primario", textContent: "Limpiar filtros", onclick: limpiarFiltros }));
+    lista.replaceChildren(v);
     return;
   }
   const grupos = [[null, visibles]];
@@ -697,7 +706,7 @@ function fila(t) {
 function pintarColumnas(lista, ts, clave) {
   const porProyecto = clave === "projectId";
   // Con un filtro puesto (persona, prioridad, búsqueda…) solo se muestran las columnas que tienen tareas.
-  const hayFiltro = filtro.owner !== null || filtro.estado || filtro.prioridad || filtro.empresa || filtro.q.trim();
+  const hayFiltro = filtro.owner !== null || !["abiertas", "todas"].includes(filtro.pestana) || filtro.prioridad || filtro.empresa || filtro.q.trim();
   const ids = new Set(ts.map((t) => t[clave]));
   let columnas;
   if (porProyecto) {
@@ -991,17 +1000,33 @@ $("nueva").onsubmit = async (ev) => {
     const j = await api("POST", "tasks", cuerpo);
     tareas.push(j.task);
     $("nTarea").value = ""; $("nFecha").value = "";
-    if (filtro.pestana === "cerradas" || filtro.pestana === "vencidas") filtro.pestana = "abiertas";
-    filtro.estado = "";
+    if (!["abiertas", "todas", "To do"].includes(filtro.pestana)) filtro.pestana = "abiertas";
     pintar(); avisar("Tarea agregada");
   } catch (e) { avisar("No se agregó: " + e.message, true); }
   boton.disabled = false;
 };
-$("fEstado").onchange = (e) => {
-  filtro.estado = e.target.value;
-  if (filtro.estado) filtro.pestana = "todas"; // para que el estado elegido no quede escondido por la pestaña
+// ---- Filtros activos: se pintan en verde y se listan arriba de las tareas, con un botón para limpiarlos ----
+function limpiarFiltros() {
+  Object.assign(filtro, { pestana: PESTANA_INICIAL, prioridad: "", proyecto: "", empresa: "", owner: null, q: "" });
+  $("fBuscar").value = "";
   pintar();
-};
+}
+function marcarFiltros() {
+  const activos = [];
+  if (filtro.owner !== null) activos.push("Persona: " + (filtro.owner || "Sin asignar"));
+  if (filtro.pestana !== PESTANA_INICIAL && !$("pestanas").hidden) activos.push("Estado: " + PESTANAS.find((p) => p[0] === filtro.pestana)[1]);
+  for (const [id, clave, nombre] of [["fPrioridad", "prioridad", "Prioridad"], ["fProyecto", "proyecto", "Proyecto"], ["fEmpresa", "empresa", "Empresa"]]) {
+    const sel = $(id);
+    sel.classList.toggle("filtro-on", !!filtro[clave]);
+    if (filtro[clave]) activos.push(nombre + ": " + sel.options[sel.selectedIndex].textContent);
+  }
+  $("fBuscar").classList.toggle("filtro-on", !!filtro.q.trim());
+  if (filtro.q.trim()) activos.push(`Búsqueda: "${filtro.q.trim()}"`);
+  const caja = $("filtrosOn");
+  caja.hidden = !activos.length;
+  caja.replaceChildren(el("span", { textContent: "Filtros activos: " + activos.join(" · ") }),
+    el("button", { type: "button", textContent: "Limpiar filtros", onclick: limpiarFiltros }));
+}
 $("fPrioridad").onchange = (e) => { filtro.prioridad = e.target.value; pintar(); };
 $("fProyecto").onchange = async (e) => {
   let v = e.target.value;
