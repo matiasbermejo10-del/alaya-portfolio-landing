@@ -190,6 +190,23 @@
   .reu.reu-pend{border-style:dashed;color:var(--gris)}
   .reu.reu-error{border-color:#F3C4BF;background:var(--rojo-fondo)}
   .reu.reu-error .texto{color:var(--rojo)}
+  /* ---- Noticias ---- */
+  #noticias{overflow:auto;padding:26px 28px 60px}
+  #noticias h2{font-size:26px;letter-spacing:-.02em}
+  .n-barra{margin-top:18px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .n-barra .campo{width:auto;max-width:220px}
+  .n-barra input[type=search]{flex:1;min-width:160px;max-width:none}
+  .n-dia{margin-top:22px;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--bordo)}
+  .noti{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:16px 18px;margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:start}
+  .noti .enc{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .noti .emp{font-weight:600}
+  .noti .nivel{border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600}
+  .n1{background:#FDE2E0;color:#A1271B}.n2{background:#FCF4D6;color:#7A5C00}.n3{background:#EEEAE7;color:#4A4245}.n0{background:#F1F1F1;color:#777}
+  .noti .alaya{background:#EFE6F9;color:#5B2E91;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600}
+  .noti .res{grid-column:1;line-height:1.55;white-space:pre-line}
+  .noti .fuente{grid-column:1;font-size:13px;color:var(--gris)}
+  .noti .fuente a{color:var(--bordo)}
+  .noti .borrar{grid-column:2;grid-row:1/4;align-self:start}
   /* ---- Cargar reunión ---- */
   #cargar{overflow:auto;padding:26px 28px 60px}
   #cargar h2{font-size:26px;letter-spacing:-.02em}
@@ -213,7 +230,7 @@
     nav button{padding:8px 11px;width:auto}
     .cuenta{border:0;padding:0}
     .cuenta button{margin:0;white-space:nowrap}
-    #tareas,#cargar{padding:18px 16px 60px}
+    #tareas,#cargar,#noticias{padding:18px 16px 60px}
     #fReunion .dos{grid-template-columns:1fr}
     .cinta{padding:16px 16px 12px}
     #rLista{padding:4px 16px 60px;grid-template-columns:1fr}
@@ -261,6 +278,16 @@
         <div class="pestanas" id="rModo"></div>
       </div>
       <div id="rLista"><div class="vacio">Cargando reuniones…</div></div>
+    </section>
+    <section id="noticias" class="vista" hidden>
+      <h2>Noticias</h2>
+      <p class="sub">Noticias del portfolio detectadas por el monitor. Borrar una la saca de Airtable y no vuelve a cargarse.</p>
+      <div class="n-barra">
+        <select class="campo" id="nfEmpresa" aria-label="Filtrar por empresa"></select>
+        <select class="campo" id="nfNivel" aria-label="Filtrar por nivel"></select>
+        <input class="campo" id="nfBuscar" type="search" placeholder="Buscar…" aria-label="Buscar noticias">
+      </div>
+      <div id="nLista"><div class="vacio">Cargando noticias…</div></div>
     </section>
     <section id="cargar" class="vista" hidden>
       <h2>Cargar reunión</h2>
@@ -325,6 +352,7 @@ const SECCIONES = [
   { id: "reuniones", nombre: "Reuniones",             icono: "🗣️", airtable: "shrN56JPsYiXub7fr" },
   { id: "impacto",   nombre: "Impacto",               icono: "🌱", airtable: "shrQgRn9y3JUkhBDE" },
   { id: "tareas",    nombre: "Tareas",                icono: "✅" },
+  { id: "noticias",  nombre: "Noticias",              icono: "📰" },
   { id: "cargar",    nombre: "Cargar reunión",        icono: "➕" },
 ];
 const BASE_AIRTABLE = "appSArF5SM32ZNUMk";
@@ -479,6 +507,7 @@ function abrir(id) {
   }
   if (s.id === "tareas" && !tareasCargadas) cargarTareas();
   if (s.id === "reuniones") { modoReuniones(rModo); if (!reunionesCargadas) cargarReuniones(); }
+  if (s.id === "noticias" && !noticiasCargadas) cargarNoticias();
   history.replaceState(null, "", "#" + s.id);
 }
 $("salir").onclick = () => cerrar("");
@@ -531,6 +560,72 @@ async function cargarReuniones() {
     lista.replaceChildren(el("div", { className: "vacio", textContent: "No se pudieron cargar las reuniones: " + e.message }));
   }
 }
+
+// ---------- Noticias ----------
+let noticias = [], noticiasCargadas = false;
+const nFiltro = { empresa: "", nivel: "", q: "" };
+const NIVELES = [["1", "Material"], ["2", "Relevante"], ["3", "Menor"]];
+const nivelNum = (l) => (String(l).match(/\d/) || ["0"])[0];
+const nivelNombre = (l) => (NIVELES.find((n) => n[0] === nivelNum(l)) || ["", String(l) || "Sin nivel"])[1];
+
+async function cargarNoticias() {
+  const lista = $("nLista");
+  try {
+    const j = await api("GET", "news");
+    noticias = j.news; noticiasCargadas = true;
+    pintarNoticias();
+  } catch (e) {
+    lista.replaceChildren(el("div", { className: "vacio", textContent: "No se pudieron cargar las noticias: " + e.message }));
+  }
+}
+
+function pintarNoticias() {
+  const empresas = [...new Map(noticias.filter((n) => n.company).map((n) => [n.companyId, n.company])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], "es"));
+  nFiltro.empresa = llenarLista($("nfEmpresa"), "Todas las empresas", empresas, nFiltro.empresa);
+  nFiltro.nivel = llenarLista($("nfNivel"), "Todos los niveles", NIVELES, nFiltro.nivel);
+  $("nfEmpresa").classList.toggle("filtro-on", !!nFiltro.empresa);
+  $("nfNivel").classList.toggle("filtro-on", !!nFiltro.nivel);
+  $("nfBuscar").classList.toggle("filtro-on", !!nFiltro.q.trim());
+  const q = plano(nFiltro.q);
+  const vis = noticias.filter((n) =>
+    (!nFiltro.empresa || n.companyId === nFiltro.empresa) &&
+    (!nFiltro.nivel || nivelNum(n.level) === nFiltro.nivel) &&
+    (!q || plano([n.company, n.summary, n.source].join(" ")).includes(q)));
+  const lista = $("nLista");
+  if (!vis.length) return lista.replaceChildren(el("div", { className: "vacio", textContent: noticias.length ? "No hay noticias con estos filtros." : "Todavía no hay noticias." }));
+  const nodos = [];
+  let dia = null;
+  vis.forEach((n) => {
+    if (n.date !== dia) { dia = n.date; nodos.push(el("div", { className: "n-dia", textContent: fechaLarga(n.date) || "Sin fecha" })); }
+    nodos.push(noticia(n));
+  });
+  lista.replaceChildren(...nodos);
+}
+
+function noticia(n) {
+  const c = el("article", { className: "noti" });
+  const enc = el("div", { className: "enc" }, [el("span", { className: "emp", textContent: n.company || "Sin empresa" }),
+    el("span", { className: "nivel n" + nivelNum(n.level), textContent: nivelNombre(n.level) })]);
+  if (n.alaya) enc.append(el("span", { className: "alaya", textContent: "Menciona a Alaya" }));
+  c.append(enc, el("p", { className: "res", textContent: n.summary || "Sin resumen." }));
+  const fuente = el("div", { className: "fuente" });
+  if (n.source) fuente.append(n.source + " · ");
+  if (n.link) fuente.append(el("a", { href: n.link, target: "_blank", rel: "noopener", textContent: "Leer la nota ↗" }));
+  c.append(fuente);
+  const b = el("button", { type: "button", className: "borrar", textContent: "×", title: "Borrar noticia" });
+  b.onclick = async () => {
+    if (!window.confirm("¿Borrar esta noticia? Se elimina de Airtable y no vuelve a cargarse.\n\n" + (n.summary || "").slice(0, 120))) return;
+    const i = noticias.indexOf(n); noticias.splice(i, 1); pintarNoticias();
+    try { await api("DELETE", "news", { id: n.id }); avisar("Noticia borrada"); }
+    catch (e) { noticias.splice(i, 0, n); pintarNoticias(); avisar("No se borró: " + e.message, true); }
+  };
+  c.append(b);
+  return c;
+}
+$("nfEmpresa").onchange = (e) => { nFiltro.empresa = e.target.value; pintarNoticias(); };
+$("nfNivel").onchange = (e) => { nFiltro.nivel = e.target.value; pintarNoticias(); };
+$("nfBuscar").oninput = (e) => { nFiltro.q = e.target.value; pintarNoticias(); };
 
 // ---------- Cargar reunión ----------
 $("fReunion").onsubmit = async (ev) => {

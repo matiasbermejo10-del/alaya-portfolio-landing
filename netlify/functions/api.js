@@ -250,6 +250,44 @@ exports.handler = async (event) => {
       console.log(`${email} cargó la reunión ${r.id}`);
       return json(200, { ok: true });
     }
+    if (accion === "news" && m === "GET") {
+      const [ns, cs] = await Promise.all([
+        listar("News", ["Date", "Company", "Level", "Summary", "Source", "Link", "Mentions Alaya"]),
+        listar("Portfolio", ["Name"]),
+      ]);
+      const nombre = Object.fromEntries(cs.map((c) => [c.id, c.fields["Name"] || ""]));
+      const news = ns.map((x) => ({
+        id: x.id,
+        date: x.fields["Date"] || "",
+        companyId: (x.fields["Company"] || [])[0] || "",
+        company: nombre[(x.fields["Company"] || [])[0]] || "",
+        level: String(x.fields["Level"] || ""),
+        summary: x.fields["Summary"] || "",
+        source: x.fields["Source"] || "",
+        link: x.fields["Link"] || "",
+        alaya: !!x.fields["Mentions Alaya"],
+      })).sort((a, z) => z.date.localeCompare(a.date));
+      return json(200, { news });
+    }
+    if (accion === "news" && m === "DELETE") {
+      let b = {};
+      try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
+      if (!esId(b.id)) throw new HttpError(400, "Noticia inválida");
+      // Se anota el link en "News Deleted" para que la sincronización con el News Monitor no la vuelva a cargar.
+      const n = await airtable(`News/${b.id}`);
+      const f = n.fields || {};
+      try {
+        await airtable(encodeURIComponent("News Deleted"), { method: "POST", body: JSON.stringify({ fields: {
+          "Key": f["Key"] || "", "Link": f["Link"] || "", "Summary": String(f["Summary"] || "").slice(0, 500), "Deleted By": email, "Deleted At": new Date().toISOString().slice(0, 10),
+        }, typecast: true }) });
+      } catch (e) {
+        if (e.tipo === "TABLE_NOT_FOUND" || /could not find table/i.test(e.message)) throw new HttpError(503, "Falta crear la tabla \"News Deleted\" en Airtable (pedile el comando a Claude)");
+        throw e;
+      }
+      await airtable(`News/${b.id}`, { method: "DELETE" });
+      console.log(`${email} borró la noticia ${b.id}`);
+      return json(200, { ok: true });
+    }
     if (accion === "team" && m === "POST") {
       let b = {};
       try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
