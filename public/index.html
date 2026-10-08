@@ -703,7 +703,9 @@ function fila(t) {
 function pintarColumnas(lista, ts) {
   const ids = new Set(ts.map((t) => t.projectId));
   // Columnas: proyectos activos (aunque no tengan tareas) y los terminados que tengan tareas con estos filtros.
-  const cols = proyectos.filter((p) => !p.done || ids.has(p.id))
+  // Con un filtro puesto (persona, prioridad, búsqueda…) solo se muestran los proyectos que tienen tareas.
+  const hayFiltro = filtro.owner !== null || filtro.estado || filtro.prioridad || filtro.empresa || filtro.q.trim();
+  const cols = proyectos.filter((p) => ids.has(p.id) || (!p.done && !hayFiltro))
     .filter((p) => !filtro.proyecto || filtro.proyecto === p.id)
     .sort((a, b) => (ts.filter((t) => t.projectId === b.id).length > 0) - (ts.filter((t) => t.projectId === a.id).length > 0) || a.name.localeCompare(b.name, "es"));
   const columnas = [...(ids.has("") && (!filtro.proyecto || filtro.proyecto === "-") ? [{ id: "", name: "Sin proyecto" }] : []), ...cols];
