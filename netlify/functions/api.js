@@ -89,6 +89,26 @@ const aTarea = (x) => ({
   status: estado(x.fields),
 });
 
+// ---- Equipo (tabla "Team"): la lista fija de responsables ----
+const plano = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+async function leerEquipo() {
+  try {
+    const rs = await listar("Team", ["Name"]);
+    return rs.map((x) => String(x.fields["Name"] || "").trim()).filter(Boolean).sort((a, z) => a.localeCompare(z, "es"));
+  } catch (e) {
+    return null; // la tabla todavía no existe
+  }
+}
+// "luis" o "Luis" -> "Luis Bermejo" si es el único Luis del equipo.
+function canonico(nombre, equipo) {
+  const n = plano(nombre);
+  if (!n || !equipo) return String(nombre || "").trim();
+  const exacto = equipo.find((p) => plano(p) === n);
+  if (exacto) return exacto;
+  const porNombre = equipo.filter((p) => plano(p).split(" ")[0] === n.split(" ")[0]);
+  return porNombre.length === 1 ? porNombre[0] : String(nombre).trim();
+}
+
 const esId = (s) => typeof s === "string" && /^rec[A-Za-z0-9]{14}$/.test(s);
 const esFecha = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -174,6 +194,19 @@ exports.handler = async (event) => {
       console.log(`${email} cargó la reunión ${r.id}`);
       return json(200, { ok: true });
     }
+    if (accion === "team" && m === "POST") {
+      let b = {};
+      try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
+      const nombre = String(b.name || "").trim().replace(/\s+/g, " ");
+      if (nombre.length < 2 || nombre.length > 60) throw new HttpError(400, "Escribí nombre y apellido");
+      const equipo = await leerEquipo();
+      if (!equipo) throw new HttpError(503, "Falta crear la tabla Team en Airtable");
+      const existe = equipo.find((p) => plano(p) === plano(nombre));
+      if (existe) return json(200, { name: existe });
+      await airtable("Team", { method: "POST", body: JSON.stringify({ fields: { Name: nombre } }) });
+      console.log(`${email} agregó a ${nombre} al equipo`);
+      return json(200, { name: nombre });
+    }
     if (accion !== "tasks") throw new HttpError(404, "No existe");
     const tabla = encodeURIComponent(TASKS);
     let b = {};
@@ -182,18 +215,21 @@ exports.handler = async (event) => {
     }
     if (m === "GET") {
       const base = ["Task", "Company", "Owner", "Due Date", "Meeting Date", "Done"];
-      const [ts, cs] = await Promise.all([
+      const [ts, cs, equipo] = await Promise.all([
         listar(TASKS, [...base, "Status"]).catch((e) => {
           if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e;
           return listar(TASKS, base);
         }),
         listar("Portfolio", ["Name"]),
+        leerEquipo(),
       ]);
+      const tasks = ts.map(aTarea);
+      tasks.forEach((t) => { t.owner = canonico(t.owner, equipo); });
       const companies = cs
         .map((c) => ({ id: c.id, name: c.fields["Name"] || "" }))
         .filter((c) => c.name)
         .sort((a, z) => a.name.localeCompare(z.name, "es"));
-      return json(200, { tasks: ts.map(aTarea), companies });
+      return json(200, { tasks, companies, team: equipo });
     }
     if (m === "POST") {
       const f = campos(b);

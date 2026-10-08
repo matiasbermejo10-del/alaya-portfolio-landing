@@ -57,7 +57,16 @@
   .primario{background:var(--bordo);color:var(--blanco);border:0;border-radius:9px;padding:9px 18px;font-weight:600;cursor:pointer;white-space:nowrap}
   .primario:hover{background:var(--bordo-osc)}
   .primario:disabled{opacity:.6;cursor:default}
-  .barra{margin-top:22px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .personas{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+  .persona{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--borde);background:var(--blanco);border-radius:999px;padding:5px 14px 5px 5px;cursor:pointer;font-weight:600;font-size:14px}
+  .persona:hover{border-color:var(--bordo)}
+  .persona .ini{width:28px;height:28px;border-radius:50%;background:var(--crema);color:var(--bordo);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .persona .num{font-weight:500;color:var(--gris)}
+  .persona.activo{background:var(--bordo);border-color:var(--bordo);color:var(--blanco)}
+  .persona.activo .ini{background:rgba(255,255,255,.2);color:var(--blanco)}
+  .persona.activo .num{color:rgba(255,255,255,.8)}
+  .persona.nueva-p{border-style:dashed;color:var(--bordo);padding:5px 14px}
+  .barra{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
   .pestanas{display:flex;background:var(--blanco);border:1px solid var(--borde);border-radius:10px;padding:3px;flex-wrap:wrap}
   .pestanas button{border:0;background:none;padding:7px 13px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--gris)}
   .pestanas button.activo{background:var(--bordo);color:var(--blanco)}
@@ -188,16 +197,15 @@
       <form id="nueva" class="nueva">
         <input class="campo tarea-nueva" id="nTarea" placeholder="Nueva tarea…" maxlength="2000" required aria-label="Nueva tarea">
         <select class="campo" id="nEmpresa" aria-label="Empresa"></select>
-        <input class="campo" id="nOwner" placeholder="Responsable" list="owners" maxlength="120" aria-label="Responsable">
+        <select class="campo" id="nOwner" aria-label="Responsable"></select>
         <input class="campo" id="nFecha" type="date" aria-label="Fecha de vencimiento">
         <button class="primario" id="nBoton" type="submit">Agregar</button>
       </form>
-      <datalist id="owners"></datalist>
+      <div class="personas" id="personas"></div>
 
       <div class="barra">
         <div class="pestanas" id="pestanas"></div>
         <select class="campo" id="fEstado" aria-label="Filtrar por estado"></select>
-        <select class="campo" id="fOwner" aria-label="Filtrar por responsable"></select>
         <select class="campo" id="fEmpresa" aria-label="Filtrar por empresa"></select>
         <input class="campo" id="fBuscar" type="search" placeholder="Buscar…" aria-label="Buscar tareas">
       </div>
@@ -398,8 +406,11 @@ $("fReunion").onsubmit = async (ev) => {
 };
 
 // ---------- Tareas ----------
-let tareas = [], empresas = [], tareasCargadas = false;
-const filtro = { pestana: "abiertas", estado: "", owner: "", empresa: "", q: "" };
+let tareas = [], empresas = [], equipo = [], tareasCargadas = false;
+const AGREGAR = "__agregar__";
+const plano = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const iniciales = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
+const filtro = { pestana: "abiertas", estado: "", owner: null, empresa: "", q: "" }; // owner: null = todos, "" = sin asignar
 const ESTADOS = ["Pendiente", "En curso", "Esperando respuesta", "Retomar en reunión", "Hecha", "Descartada"];
 const cerrada = (t) => t.status === "Hecha" || t.status === "Descartada";
 const hoy = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -416,6 +427,9 @@ async function cargarTareas() {
   try {
     const j = await api("GET", "tasks");
     tareas = j.tasks; empresas = j.companies; tareasCargadas = true;
+    // Si todavía no existe la tabla Team, se arma la lista con los responsables que ya hay.
+    equipo = j.team || [...new Map(tareas.filter((t) => t.owner).map((t) => [plano(t.owner), t.owner])).values()];
+    equipo.sort((a, b) => a.localeCompare(b, "es"));
     llenarEmpresas($("nEmpresa"), "Empresa (opcional)");
     pintar();
   } catch (e) {
@@ -436,9 +450,7 @@ function opciones(select, vacio, valores, actual) {
 
 function pintar() {
   // filtros
-  const owners = [...new Set(tareas.map((t) => t.owner).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
-  $("owners").replaceChildren(...owners.map((o) => el("option", { value: o })));
-  filtro.owner = opciones($("fOwner"), "Todos los responsables", owners.map((o) => [o, o]), filtro.owner);
+  llenarPersonas($("nOwner"), "Responsable", $("nOwner").value);
   const conTareas = empresas.filter((e) => tareas.some((t) => t.companyId === e.id));
   filtro.empresa = opciones($("fEmpresa"), "Todas las empresas", conTareas.map((e) => [e.id, e.name]), filtro.empresa);
 
@@ -447,16 +459,30 @@ function pintar() {
   const q = filtro.q.trim().toLowerCase();
   const base = tareas.filter((t) =>
     (!filtro.estado || t.status === filtro.estado) &&
-    (!filtro.owner || t.owner === filtro.owner) &&
     (!filtro.empresa || t.companyId === filtro.empresa) &&
     (!q || (t.task + " " + t.owner + " " + nombreEmpresa(t.companyId)).toLowerCase().includes(q)));
 
+  // Personas: el conteo es de tareas abiertas, con el resto de los filtros aplicados.
+  const abiertas = base.filter((t) => !cerrada(t));
+  const conteo = (n) => abiertas.filter((t) => (n === "" ? !t.owner : plano(t.owner) === plano(n))).length;
+  const chip = (valor, nombre, num, ini) => el("button", {
+    type: "button", className: "persona" + (filtro.owner === valor ? " activo" : ""),
+    onclick: () => { filtro.owner = filtro.owner === valor ? null : valor; pintar(); },
+  }, [ini ? el("span", { className: "ini", textContent: ini }) : "", nombre, el("span", { className: "num", textContent: num })]);
+  const sueltos = [...new Set(tareas.map((t) => t.owner).filter((o) => o && !equipo.some((p) => plano(p) === plano(o))))];
+  $("personas").replaceChildren(
+    chip(null, "Todos", abiertas.length, "★"),
+    ...[...equipo, ...sueltos].map((p) => chip(p, p, conteo(p), iniciales(p))),
+    chip("", "Sin asignar", conteo(""), "?"),
+    el("button", { type: "button", className: "persona nueva-p", textContent: "+ Persona", onclick: () => agregarPersona() }));
+  const porPersona = base.filter((t) => filtro.owner === null || (filtro.owner === "" ? !t.owner : plano(t.owner) === plano(filtro.owner)));
+
   $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
     el("button", { type: "button", className: filtro.pestana === id ? "activo" : "", onclick: () => { filtro.pestana = id; pintar(); } },
-      [nombre, el("b", { textContent: base.filter(f).length })])));
+      [nombre, el("b", { textContent: porPersona.filter(f).length })])));
 
   const f = PESTANAS.find((p) => p[0] === filtro.pestana)[2];
-  const visibles = base.filter(f).sort((a, b) =>
+  const visibles = porPersona.filter(f).sort((a, b) =>
     (cerrada(a) - cerrada(b)) || (a.due || "9999").localeCompare(b.due || "9999") || (b.meetingDate || "").localeCompare(a.meetingDate || ""));
 
   const lista = $("lista");
@@ -495,9 +521,14 @@ function fila(t) {
   llenarEmpresas(empresa, "Sin empresa", t.companyId);
   empresa.onchange = () => cambiar(t, { companyId: empresa.value });
 
-  const owner = el("input", { className: "campo", value: t.owner, placeholder: "Sin responsable", maxLength: 120 });
-  owner.setAttribute("list", "owners"); owner.setAttribute("aria-label", "Responsable");
-  owner.onchange = () => { const v = owner.value.trim(); if (v !== t.owner) cambiar(t, { owner: v }); };
+  const owner = el("select", { className: "campo" });
+  owner.setAttribute("aria-label", "Responsable");
+  llenarPersonas(owner, "Sin responsable", t.owner);
+  owner.onchange = async () => {
+    let v = owner.value;
+    if (v === AGREGAR) { v = await agregarPersona(); if (!v) { owner.value = t.owner; return; } }
+    if (v !== t.owner) cambiar(t, { owner: v });
+  };
 
   const fecha = el("input", { className: "campo", type: "date", value: t.due });
   fecha.setAttribute("aria-label", "Fecha de vencimiento");
@@ -533,10 +564,35 @@ async function eliminar(t) {
   catch (e) { tareas.splice(i, 0, t); pintar(); avisar("No se borró: " + e.message, true); }
 }
 
+function llenarPersonas(select, vacio, actual) {
+  const nombres = [...equipo];
+  if (actual && !nombres.some((p) => plano(p) === plano(actual))) nombres.push(actual);
+  select.replaceChildren(el("option", { value: "", textContent: vacio }),
+    ...nombres.map((p) => el("option", { value: p, textContent: p })),
+    el("option", { value: AGREGAR, textContent: "+ Agregar persona…" }));
+  select.value = nombres.find((p) => plano(p) === plano(actual)) || "";
+}
+
+async function agregarPersona() {
+  const nombre = (window.prompt("Nombre y apellido de la persona nueva:") || "").trim();
+  if (!nombre) return "";
+  try {
+    const j = await api("POST", "team", { name: nombre });
+    if (!equipo.includes(j.name)) { equipo.push(j.name); equipo.sort((a, b) => a.localeCompare(b, "es")); }
+    pintar(); avisar(j.name + " agregado al equipo");
+    return j.name;
+  } catch (e) { avisar("No se agregó: " + e.message, true); return ""; }
+}
+$("nOwner").onchange = async () => {
+  if ($("nOwner").value !== AGREGAR) return;
+  const v = await agregarPersona();
+  llenarPersonas($("nOwner"), "Responsable", v);
+};
+
 $("nueva").onsubmit = async (ev) => {
   ev.preventDefault();
   const boton = $("nBoton");
-  const cuerpo = { task: $("nTarea").value.trim(), companyId: $("nEmpresa").value, owner: $("nOwner").value.trim(), due: $("nFecha").value };
+  const cuerpo = { task: $("nTarea").value.trim(), companyId: $("nEmpresa").value, owner: $("nOwner").value === AGREGAR ? "" : $("nOwner").value, due: $("nFecha").value };
   if (!cuerpo.task) return;
   boton.disabled = true;
   try {
@@ -554,7 +610,6 @@ $("fEstado").onchange = (e) => {
   if (filtro.estado) filtro.pestana = "todas"; // para que el estado elegido no quede escondido por la pestaña
   pintar();
 };
-$("fOwner").onchange = (e) => { filtro.owner = e.target.value; pintar(); };
 $("fEmpresa").onchange = (e) => { filtro.empresa = e.target.value; pintar(); };
 $("fBuscar").oninput = (e) => { filtro.q = e.target.value; pintar(); };
 
