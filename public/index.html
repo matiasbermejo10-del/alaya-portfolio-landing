@@ -98,6 +98,32 @@
   .prox{font-size:12.5px;color:var(--texto);padding:2px 8px 0}
   .prox::before{content:"→ ";color:var(--bordo);font-weight:700}
   .vacio{padding:36px 16px;text-align:center;color:var(--gris);background:var(--blanco);border:1px solid var(--borde);border-radius:14px}
+  /* Calendario */
+  .cal-cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .cal-cab h3{font-size:20px;letter-spacing:-.01em;margin-right:auto;text-transform:capitalize}
+  .cal-cab button{border:1px solid var(--borde);background:var(--blanco);border-radius:9px;padding:7px 13px;cursor:pointer;font-weight:600}
+  .cal-cab button:hover{border-color:var(--bordo)}
+  .cal-cab .nota{font-size:13px;color:var(--gris)}
+  .mes{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:var(--borde);gap:1px;border:1px solid var(--borde);border-radius:14px;overflow:hidden}
+  .mes .dn{background:#FBF8F6;font-size:12px;font-weight:600;color:var(--gris);text-transform:uppercase;letter-spacing:.06em;padding:8px 10px}
+  .dia{background:var(--blanco);min-height:118px;padding:6px 6px 8px;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .dia.fuera{background:#FAF8F7}
+  .dia.fuera .num{color:#B9AFAB}
+  .dia.finde{background:#FCFAF9}
+  .dia.sobre{outline:2px dashed var(--bordo);outline-offset:-3px}
+  .dia .num{font-size:13px;font-weight:600;color:var(--gris);padding:2px 4px;align-self:flex-start;border-radius:999px;min-width:26px;text-align:center}
+  .dia.hoy .num{background:var(--bordo);color:var(--blanco)}
+  .ev{display:flex;align-items:center;gap:5px;border:0;text-align:left;border-radius:7px;padding:4px 6px;font-size:12.5px;line-height:1.25;cursor:pointer;width:100%;min-width:0}
+  .ev span.tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+  .ev .ini{width:20px;height:20px;font-size:9.5px}
+  .ev.hecha{opacity:.5;text-decoration:line-through}
+  .ev.vencida-c{box-shadow:inset 3px 0 0 var(--rojo)}
+  .dia .mas-d{font-size:12px;color:var(--bordo);background:none;border:0;cursor:pointer;text-align:left;padding:2px 6px;font-weight:600}
+  .agenda{display:none}
+  .agenda .ag-dia{background:var(--blanco);border:1px solid var(--borde);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+  .agenda .ag-dia h4{font-size:13px;color:var(--gris);margin-bottom:6px;text-transform:capitalize}
+  .agenda .ag-dia.hoy h4{color:var(--bordo)}
+  .agenda .ev{padding:7px 8px;font-size:14px;margin-top:4px}
   /* Kanban */
   .kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:14px;overflow-x:auto;padding-bottom:8px}
   .col{background:#EFE9E5;border-radius:14px;padding:10px;min-height:240px}
@@ -168,6 +194,8 @@
     .fila .c-tarea{grid-column:1/-1;grid-row:1}
     .barra .campo{max-width:none;flex:1 1 140px}
     #panel .grilla{grid-template-columns:1fr}
+    .mes{display:none}
+    .agenda{display:block}
     #panel .grilla > span{margin-top:6px}
   }
 </style>
@@ -453,7 +481,7 @@ let tareas = [], empresas = [], proyectos = [], equipo = [], tareasCargadas = fa
 const AGREGAR = "__agregar__";
 const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
 const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
-const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["proyecto", "Por proyecto"], ["kanban", "Kanban"]];
+const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["proyecto", "Por proyecto"], ["kanban", "Kanban"], ["calendario", "Calendario"]];
 const plano = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const iniciales = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 // owner: null = todos, "" = sin asignar
@@ -578,13 +606,14 @@ function pintar() {
   const porPersona = base.filter((t) => filtro.owner === null || (filtro.owner === "" ? !t.owner : plano(t.owner) === plano(filtro.owner)));
 
   // En Kanban las columnas ya separan por estado, así que no se usan las pestañas.
-  $("pestanas").hidden = vista === "kanban";
+  $("pestanas").hidden = vista === "kanban" || vista === "calendario";
   $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
     el("button", { type: "button", className: filtro.pestana === id ? "activo" : "", onclick: () => { filtro.pestana = id; pintar(); } },
       [nombre, el("b", { textContent: porPersona.filter(f).length })])));
 
   const lista = $("lista");
   if (vista === "kanban") return pintarKanban(lista, porPersona);
+  if (vista === "calendario") return pintarCalendario(lista, porPersona);
   const visibles = porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]).sort(ordenar);
   if (!visibles.length) {
     lista.replaceChildren(el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros." : "Todavía no hay tareas." }));
@@ -634,6 +663,78 @@ function fila(t) {
     el("div", { className: "c-owner" }, [selectPersona(t, "campo")]),
     el("div", { className: "c-fecha" }, [fecha]));
   return f;
+}
+
+// ---- Calendario ----
+const DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const MESES_C = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+let calMes = null; // primer día del mes que se está viendo ("AAAA-MM")
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const TOPE_DIA = 4;
+
+function evento(t) {
+  const b = el("button", {
+    type: "button", draggable: true,
+    className: "ev " + claseP(t.priority).replace("pill ", "") + (cerrada(t) ? " hecha" : "") + (vencida(t) ? " vencida-c" : ""),
+    title: [t.task, t.owner, t.status, t.priority].filter(Boolean).join(" · "),
+    onclick: () => abrirPanel(t),
+  });
+  b.ondragstart = (e) => e.dataTransfer.setData("text/plain", t.id);
+  if (t.owner) b.append(el("span", { className: "ini", textContent: iniciales(t.owner) }));
+  b.append(el("span", { className: "tx", textContent: t.task }));
+  return b;
+}
+
+function pintarCalendario(lista, ts) {
+  if (!calMes) calMes = hoy().slice(0, 7);
+  const [a, m] = calMes.split("-").map(Number);
+  const primero = new Date(a, m - 1, 1);
+  const inicio = new Date(primero); inicio.setDate(1 - ((primero.getDay() + 6) % 7)); // arranca en lunes
+  const porDia = {};
+  ts.filter((t) => t.due).sort(ordenar).forEach((t) => { (porDia[t.due] = porDia[t.due] || []).push(t); });
+  const sinFecha = ts.filter((t) => !t.due && !cerrada(t)).length;
+  const mover = (delta) => { const d = new Date(a, m - 1 + delta, 1); calMes = iso(d).slice(0, 7); pintar(); };
+
+  const cab = el("div", { className: "cal-cab" }, [
+    el("h3", { textContent: `${MESES_C[m - 1]} ${a}` }),
+    el("button", { type: "button", textContent: "‹", title: "Mes anterior", onclick: () => mover(-1) }),
+    el("button", { type: "button", textContent: "Hoy", onclick: () => { calMes = hoy().slice(0, 7); pintar(); } }),
+    el("button", { type: "button", textContent: "›", title: "Mes siguiente", onclick: () => mover(1) }),
+  ]);
+  if (sinFecha) cab.append(el("span", { className: "nota", textContent: sinFecha === 1 ? "1 tarea abierta sin deadline (está en la vista Lista)" : `${sinFecha} tareas abiertas sin deadline (están en la vista Lista)` }));
+
+  const grilla = el("div", { className: "mes" }, DIAS.map((d) => el("div", { className: "dn", textContent: d })));
+  const agenda = el("div", { className: "agenda" });
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(inicio); d.setDate(inicio.getDate() + i);
+    if (i >= 35 && d.getMonth() !== m - 1) break; // no mostrar una semana entera del mes siguiente
+    const f = iso(d), delDia = porDia[f] || [];
+    const celda = el("div", { className: "dia" + (d.getMonth() !== m - 1 ? " fuera" : "") + (f === hoy() ? " hoy" : "") + (d.getDay() % 6 === 0 ? " finde" : "") },
+      [el("span", { className: "num", textContent: d.getDate() })]);
+    const visibles = delDia.slice(0, TOPE_DIA);
+    visibles.forEach((t) => celda.append(evento(t)));
+    if (delDia.length > TOPE_DIA) {
+      const mas = el("button", { type: "button", className: "mas-d", textContent: `+ ${delDia.length - TOPE_DIA} más` });
+      mas.onclick = () => { delDia.slice(TOPE_DIA).forEach((t) => celda.insertBefore(evento(t), mas)); mas.remove(); };
+      celda.append(mas);
+    }
+    // Arrastrar una tarea a otro día le cambia el deadline.
+    celda.ondragover = (e) => { e.preventDefault(); celda.classList.add("sobre"); };
+    celda.ondragleave = () => celda.classList.remove("sobre");
+    celda.ondrop = (e) => {
+      e.preventDefault(); celda.classList.remove("sobre");
+      const t = tareas.find((x) => x.id === e.dataTransfer.getData("text/plain"));
+      if (t && t.due !== f) cambiar(t, { due: f });
+    };
+    grilla.append(celda);
+    if (d.getMonth() === m - 1 && delDia.length) {
+      agenda.append(el("div", { className: "ag-dia" + (f === hoy() ? " hoy" : "") }, [
+        el("h4", { textContent: `${DIAS[(d.getDay() + 6) % 7]} ${d.getDate()} de ${MESES_C[m - 1]}` + (f === hoy() ? " · hoy" : "") }),
+        ...delDia.map(evento)]));
+    }
+  }
+  if (!agenda.childNodes.length) agenda.append(el("div", { className: "vacio", textContent: "No hay tareas con deadline este mes." }));
+  lista.replaceChildren(cab, grilla, agenda);
 }
 
 // ---- Kanban ----
