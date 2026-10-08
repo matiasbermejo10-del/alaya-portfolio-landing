@@ -101,7 +101,7 @@ function estado(f) {
 }
 
 const CAMPOS_TAREA = ["Name", "Owner", "Status", "Priority", "Start Date", "Deadline", "Project", "Company",
-  "Meeting", "Meeting Date", "Notes", "Next step", "URL", "Minuta de reunión", "Attachments", "Done", "Source"];
+  "Meeting", "Meeting Date", "Notes", "Next step", "URL", "Minuta de reunión", "Attachments", "Done", "Source", "Reviewed"];
 const aTarea = (x) => {
   const f = x.fields;
   return {
@@ -121,6 +121,7 @@ const aTarea = (x) => {
     minuta: f["Minuta de reunión"] || "",
     attachments: (f["Attachments"] || []).map((a) => ({ url: a.url, name: a.filename || "archivo" })),
     source: f["Source"] || "",
+    reviewed: !!f["Reviewed"],
   };
 };
 
@@ -176,6 +177,7 @@ function campos(b) {
     f[campo] = b[k] ? [b[k]] : [];
   }
   if ("notes" in b) f["Notes"] = String(b.notes || "").slice(0, 20000);
+  if ("reviewed" in b) f["Reviewed"] = !!b.reviewed;
   if ("next" in b) f["Next step"] = String(b.next || "").trim().slice(0, 500);
   for (const [k, campo] of [["url", "URL"], ["minuta", "Minuta de reunión"]]) {
     if (!(k in b)) continue;
@@ -302,7 +304,10 @@ exports.handler = async (event) => {
     }
     if (m === "GET") {
       const [ts, cs, ps, equipo] = await Promise.all([
-        listar(TASKS, CAMPOS_TAREA),
+        listar(TASKS, CAMPOS_TAREA).catch((e) => {
+          if (e.tipo === "UNKNOWN_FIELD_NAME" && e.campo === "Reviewed") return listar(TASKS, CAMPOS_TAREA.filter((c) => c !== "Reviewed"));
+          throw e;
+        }),
         listar("Portfolio", ["Name"]),
         listar("Projects", ["Name", "Status"]),
         leerEquipo(),

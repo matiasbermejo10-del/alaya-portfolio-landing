@@ -67,7 +67,12 @@
   .persona.activo .ini{background:rgba(255,255,255,.2);color:var(--blanco)}
   .persona.activo .num{color:rgba(255,255,255,.8)}
   .persona.nueva-p{border-style:dashed;color:var(--bordo);padding:5px 14px}
-  .falta{display:inline-flex;align-items:center;gap:5px;background:var(--rojo-fondo);color:var(--rojo);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:600;white-space:nowrap}
+  .falta{display:inline-flex;align-items:center;gap:7px;background:var(--rojo-fondo);color:var(--rojo);border-radius:6px;padding:2px 4px 2px 7px;font-size:12px;font-weight:600;white-space:nowrap}
+  .falta .dejar{border:0;background:#fff;color:var(--rojo);border-radius:5px;padding:1px 7px;font-size:11.5px;font-weight:600;cursor:pointer;box-shadow:0 0 0 1px #F3C4BF}
+  .falta .dejar:hover{background:var(--rojo);color:#fff}
+  .falta.gris{background:#F1EDEA;color:var(--gris)}
+  .falta.gris .dejar{color:var(--gris);box-shadow:0 0 0 1px var(--borde)}
+  .falta.gris .dejar:hover{background:var(--gris);color:#fff}
   .fila .campo.vacio-r,.fila select.pill.p5.vacio-r,#panel .campo.vacio-r,#panel select.pill.vacio-r{box-shadow:inset 0 0 0 2px var(--rojo);background:var(--rojo-fondo)}
   .tarjeta.incompleta{border-color:#F3C4BF}
   .pestanas button .rojo{color:var(--rojo)}
@@ -677,8 +682,14 @@ const claseE = (s) => "pill e" + Math.max(0, ESTADOS.indexOf(s));
 const claseP = (p) => "pill p" + (PRIORIDADES.includes(p) ? PRIORIDADES.indexOf(p) : 5);
 // Una tarea abierta está "a revisar" si le falta responsable, proyecto, prioridad o deadline.
 const FALTANTES = [["owner", "responsable"], ["projectId", "proyecto"], ["priority", "prioridad"], ["due", "deadline"]];
-const faltantes = (t) => cerrada(t) ? [] : FALTANTES.filter(([k]) => !t[k]).map(([, n]) => n);
+const faltantes = (t) => cerrada(t) || t.reviewed ? [] : FALTANTES.filter(([k]) => !t[k]).map(([, n]) => n);
 const incompleta = (t) => faltantes(t).length > 0;
+// Botón para sacar la marca "Falta: …" sin completar nada (queda guardado en Airtable como revisada).
+function etiquetaFalta(t, falta) {
+  const e = el("span", { className: "falta" }, ["Falta: " + falta.join(", ")]);
+  e.append(el("button", { type: "button", className: "dejar", textContent: "Dejar así", title: "Sacar de \"A revisar\" sin completar", onclick: (ev) => { ev.stopPropagation(); cambiar(t, { reviewed: true }); } }));
+  return e;
+}
 const PESTANAS = [
   ["revisar", "A revisar", incompleta],
   ["abiertas", "Abiertas", (t) => !cerrada(t)],
@@ -817,7 +828,7 @@ function pintar() {
   const pregunta = bloqueSinDueno(base);
   if (!visibles.length) {
     const v = el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros. " : "Todavía no hay tareas." });
-    if (tareas.length && !$("filtrosOn").hidden) v.append(el("button", { type: "button", className: "primario", textContent: "Limpiar filtros", onclick: limpiarFiltros }));
+    if (tareas.length && Number($("filtrosOn").dataset.activos)) v.append(el("button", { type: "button", className: "primario", textContent: "Limpiar filtros", onclick: limpiarFiltros }));
     lista.replaceChildren(...(pregunta ? [pregunta] : []), v);
     return;
   }
@@ -841,7 +852,7 @@ function fila(t) {
   const cTarea = el("div", { className: "c-tarea" }, [el("button", { type: "button", className: "titulo", textContent: t.task, onclick: () => abrirPanel(t) })]);
   const meta = el("div", { className: "meta" });
   const falta = faltantes(t);
-  if (falta.length) meta.append(el("span", { className: "falta", textContent: "Falta: " + falta.join(", ") }));
+  if (falta.length) meta.append(etiquetaFalta(t, falta));
   if (t.projectId) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
   if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
   if (t.meetingDate) meta.append(el("span", { textContent: "Reunión " + fechaCorta(t.meetingDate) }));
@@ -849,12 +860,13 @@ function fila(t) {
   if (meta.childNodes.length) cTarea.append(meta);
   if (t.next && !cerrada(t)) cTarea.append(el("div", { className: "prox", textContent: t.next }));
 
-  const fecha = el("input", { className: "campo" + (!cerrada(t) && !t.due ? " vacio-r" : ""), type: "date", value: t.due });
+  const rev = !cerrada(t) && !t.reviewed;
+  const fecha = el("input", { className: "campo" + (rev && !t.due ? " vacio-r" : ""), type: "date", value: t.due });
   fecha.setAttribute("aria-label", "Deadline");
   fecha.onchange = () => cambiar(t, { due: fecha.value });
   const prio = selectPrioridad(t), dueno = selectPersona(t, "campo");
-  if (!cerrada(t) && !t.priority) prio.classList.add("vacio-r");
-  if (!cerrada(t) && !t.owner) dueno.classList.add("vacio-r");
+  if (rev && !t.priority) prio.classList.add("vacio-r");
+  if (rev && !t.owner) dueno.classList.add("vacio-r");
 
   f.append(el("div", { className: "c-estado" }, [selectEstado(t)]), cTarea,
     el("div", { className: "c-prio" }, [prio]),
@@ -1056,7 +1068,7 @@ function tarjeta(t, sinProyecto, sinPrioridad) {
   const meta = el("div", { className: "meta" });
   meta.style.padding = "0";
   const falta = faltantes(t);
-  if (falta.length) { c.classList.add("incompleta"); meta.append(el("span", { className: "falta", textContent: "Falta: " + falta.join(", ") })); }
+  if (falta.length) { c.classList.add("incompleta"); meta.append(etiquetaFalta(t, falta)); }
   if (t.projectId && !sinProyecto) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
   if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
   if (meta.childNodes.length) c.append(meta);
@@ -1101,16 +1113,18 @@ function abrirPanel(t) {
   const grilla = el("div", { className: "grilla" });
   const fila2 = (etiqueta, ...nodos) => grilla.append(el("span", { textContent: etiqueta }), el("div", {}, nodos));
   const falta = faltantes(t);
-  if (falta.length) grilla.append(el("span"), el("div", {}, [el("span", { className: "falta", textContent: "Falta completar: " + falta.join(", ") })]));
+  if (falta.length) grilla.append(el("span"), el("div", {}, [etiquetaFalta(t, falta)]));
+  else if (t.reviewed && !cerrada(t) && FALTANTES.some(([k]) => !t[k])) grilla.append(el("span"), el("div", {}, [
+    el("span", { className: "falta gris" }, ["Marcada como \"dejar así\" ", el("button", { type: "button", className: "dejar", textContent: "Volver a revisar", onclick: () => cambiar(t, { reviewed: false }) })])]));
   fila2("Estado", selectEstado(t));
   const prioP = selectPrioridad(t), duenoP = selectPersona(t, "campo");
-  if (!cerrada(t)) { if (!t.priority) prioP.classList.add("vacio-r"); if (!t.owner) duenoP.classList.add("vacio-r"); if (!t.projectId) proyecto.classList.add("vacio-r"); }
+  if (!cerrada(t) && !t.reviewed) { if (!t.priority) prioP.classList.add("vacio-r"); if (!t.owner) duenoP.classList.add("vacio-r"); if (!t.projectId) proyecto.classList.add("vacio-r"); }
   fila2("Prioridad", prioP);
   fila2("Responsable", duenoP);
   fila2("Proyecto", proyecto);
   fila2("Empresa", empresa);
   fila2("Inicio", fechaI("start"));
-  const dl = fechaI("due"); if (!cerrada(t) && !t.due) dl.classList.add("vacio-r");
+  const dl = fechaI("due"); if (!cerrada(t) && !t.reviewed && !t.due) dl.classList.add("vacio-r");
   fila2("Deadline", dl);
   fila2("Próximo paso", campoTexto(t.next, "next", { props: { placeholder: "Qué sigue…", maxLength: 500 } }));
   fila2("Notas", campoTexto(t.notes, "notes", { tag: "textarea", props: { className: "campo notas", placeholder: "Notas, contexto, links…" } }));
@@ -1215,10 +1229,8 @@ function marcarFiltros() {
   }
   $("fBuscar").classList.toggle("filtro-on", !!filtro.q.trim());
   if (filtro.q.trim()) activos.push(`Búsqueda: "${filtro.q.trim()}"`);
-  const caja = $("filtrosOn");
-  caja.hidden = !activos.length;
-  caja.replaceChildren(el("span", { textContent: "Filtros activos: " + activos.join(" · ") }),
-    el("button", { type: "button", textContent: "Limpiar filtros", onclick: limpiarFiltros }));
+  $("filtrosOn").hidden = true; // los filtros activos se ven en verde; no hace falta una franja de texto
+  $("filtrosOn").dataset.activos = activos.length;
 }
 $("fPrioridad").onchange = (e) => { filtro.prioridad = e.target.value; pintar(); };
 $("fProyecto").onchange = async (e) => {
