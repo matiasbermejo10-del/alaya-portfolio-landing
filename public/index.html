@@ -197,7 +197,7 @@
   .n-barra .campo{width:auto;max-width:220px}
   .n-barra input[type=search]{flex:1;min-width:160px;max-width:none}
   .n-dia{margin-top:22px;font-size:12.5px;text-transform:uppercase;letter-spacing:.08em;font-weight:600;color:var(--bordo)}
-  .noti{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:16px 18px;margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:start}
+  .noti{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:16px 18px;margin-top:10px;display:grid;gap:8px;align-items:start}
   .noti .enc{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
   .noti .emp{font-weight:600}
   .noti .nivel{border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600}
@@ -281,7 +281,7 @@
     </section>
     <section id="noticias" class="vista" hidden>
       <h2>Noticias</h2>
-      <p class="sub">Noticias del portfolio detectadas por el monitor. Borrar una la saca de Airtable y no vuelve a cargarse.</p>
+      <p class="sub">Noticias del portfolio detectadas por el monitor.</p>
       <div class="n-barra">
         <select class="campo" id="nfEmpresa" aria-label="Filtrar por empresa"></select>
         <select class="campo" id="nfNivel" aria-label="Filtrar por nivel"></select>
@@ -613,14 +613,6 @@ function noticia(n) {
   if (n.source) fuente.append(n.source + " · ");
   if (n.link) fuente.append(el("a", { href: n.link, target: "_blank", rel: "noopener", textContent: "Leer la nota ↗" }));
   c.append(fuente);
-  const b = el("button", { type: "button", className: "borrar", textContent: "×", title: "Borrar noticia" });
-  b.onclick = async () => {
-    if (!window.confirm("¿Borrar esta noticia? Se elimina de Airtable y no vuelve a cargarse.\n\n" + (n.summary || "").slice(0, 120))) return;
-    const i = noticias.indexOf(n); noticias.splice(i, 1); pintarNoticias();
-    try { await api("DELETE", "news", { id: n.id }); avisar("Noticia borrada"); }
-    catch (e) { noticias.splice(i, 0, n); pintarNoticias(); avisar("No se borró: " + e.message, true); }
-  };
-  c.append(b);
   return c;
 }
 $("nfEmpresa").onchange = (e) => { nFiltro.empresa = e.target.value; pintarNoticias(); };
