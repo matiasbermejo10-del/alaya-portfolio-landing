@@ -127,9 +127,14 @@ const aTarea = (x) => {
 
 // ---- Equipo (tabla "Team"): la lista fija de responsables ----
 const plano = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+let equipoMails = {}; // nombre -> mail (de la tabla Team), para reconocer a quien entra
 async function leerEquipo() {
   try {
-    const rs = await listar("Team", ["Name"]);
+    let rs;
+    try { rs = await listar("Team", ["Name", "Email"]); }
+    catch (e) { if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e; rs = await listar("Team", ["Name"]); }
+    equipoMails = {};
+    rs.forEach((x) => { const n = String(x.fields["Name"] || "").trim(); if (n && x.fields["Email"]) equipoMails[n] = String(x.fields["Email"]).toLowerCase().trim(); });
     return rs.map((x) => String(x.fields["Name"] || "").trim()).filter(Boolean).sort((a, z) => a.localeCompare(z, "es"));
   } catch (e) {
     return null; // la tabla todavía no existe
@@ -322,7 +327,7 @@ exports.handler = async (event) => {
         .map((c) => ({ id: c.id, name: c.fields["Name"] || "" }))
         .filter((c) => c.name)
         .sort((a, z) => a.name.localeCompare(z.name, "es"));
-      return json(200, { tasks, companies, projects, team: equipo });
+      return json(200, { tasks, companies, projects, team: equipo, teamEmails: equipoMails, me: email });
     }
     if (m === "POST") {
       const f = { Status: "To do", Source: "Manual", ...campos(b) };

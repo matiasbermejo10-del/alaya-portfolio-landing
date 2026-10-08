@@ -449,7 +449,7 @@ function avisar(texto, error) {
 function avisoAcceso(texto) { const a = $("avisoAcceso"); a.textContent = texto || ""; a.hidden = !texto; }
 
 function cerrar(mensaje) {
-  token = ""; correo = ""; guardarSesion("");
+  token = ""; correo = ""; guardarSesion(""); yo = ""; personaAuto = false; tareasCargadas = false;
   if (window.google && google.accounts) google.accounts.id.disableAutoSelect();
   $("app").hidden = true; $("acceso").hidden = false;
   avisoAcceso(mensaje || "");
@@ -660,6 +660,19 @@ $("fReunion").onsubmit = async (ev) => {
 
 // ---------- Tareas ----------
 let tareas = [], empresas = [], proyectos = [], equipo = [], tareasCargadas = false;
+let yo = ""; // nombre en el equipo de quien entró (por mail en la tabla Team, o por las 3 primeras letras del mail)
+let personaAuto = false; // ya se abrió el perfil propio al entrar a Tareas
+function quienSoy(mail, mails) {
+  const local = plano((mail || "").split("@")[0]);
+  if (!local) return "";
+  const porMail = equipo.find((p) => (mails[p] || "") === (mail || "").toLowerCase());
+  if (porMail) return porMail;
+  const pref = local.slice(0, 3);
+  const cand = equipo.filter((p) => plano(p).slice(0, 3) === pref);
+  return cand.length === 1 ? cand[0] : "";
+}
+// Lo "mío": tareas a mi nombre o sin responsable.
+const esMia = (t) => !t.owner || (yo && plano(t.owner) === plano(yo));
 const AGREGAR = "__agregar__";
 const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
 const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
@@ -707,6 +720,8 @@ async function cargarTareas() {
     tareas = j.tasks; empresas = j.companies; proyectos = j.projects || []; tareasCargadas = true;
     equipo = j.team || [...new Map(tareas.filter((t) => t.owner).map((t) => [plano(t.owner), t.owner])).values()];
     equipo.sort((a, b) => a.localeCompare(b, "es"));
+    yo = quienSoy(j.me || correo, j.teamEmails || {});
+    if (yo && !personaAuto && filtro.owner === null) { filtro.owner = yo; personaAuto = true; }
     llenarProyectos($("nProyecto"), "Proyecto (opcional)", "");
     llenarLista($("nPrioridad"), "Prioridad", PRIORIDADES, "");
     pintar();
@@ -809,13 +824,16 @@ function pintar() {
     ...[...equipo, ...sueltos].map((p) => chip(p, p, conteo(p), iniciales(p))),
     chip("", "Sin asignar", conteo(""), "?"),
     el("button", { type: "button", className: "persona nueva-p", textContent: "+ Persona", onclick: () => agregarPersona() }));
-  const porPersona = base.filter((t) => filtro.owner === null || (filtro.owner === "" ? !t.owner : plano(t.owner) === plano(filtro.owner)));
+  const dePersona = (t) => filtro.owner === null || (filtro.owner === "" ? !t.owner : plano(t.owner) === plano(filtro.owner));
+  // "A revisar" con una persona elegida: las suyas más las que no tienen responsable.
+  const porPersonaRev = base.filter((t) => dePersona(t) || (filtro.owner && !t.owner));
+  const porPersona = filtro.pestana === "revisar" ? porPersonaRev : base.filter(dePersona);
 
   // En Kanban las columnas ya separan por estado, así que no se usan las pestañas.
   $("pestanas").hidden = vista === "kanban" || vista === "calendario";
   $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
     el("button", { type: "button", className: filtro.pestana === id ? "activo" + (id !== PESTANA_INICIAL ? " verde" : "") : "", onclick: () => { filtro.pestana = id; pintar(); } },
-      [nombre, el("b", { className: id === "revisar" && porPersona.filter(f).length ? "rojo" : "", textContent: porPersona.filter(f).length })])));
+      [nombre, el("b", { className: id === "revisar" && porPersonaRev.filter(f).length ? "rojo" : "", textContent: (id === "revisar" ? porPersonaRev : base.filter(dePersona)).filter(f).length })])));
   marcarFiltros();
   globoMenu();
 
@@ -895,8 +913,8 @@ function bloqueSinDueno(base) {
 function globoMenu() {
   const b = $("m-tareas");
   b.querySelectorAll(".globo").forEach((g) => g.remove());
-  const n = tareas.filter(incompleta).length;
-  if (n) b.append(el("span", { className: "globo", textContent: n, title: n + " tareas a revisar" }));
+  const n = tareas.filter((t) => incompleta(t) && (yo ? esMia(t) : true)).length;
+  if (n) b.append(el("span", { className: "globo", textContent: n, title: n + (yo ? " tareas tuyas o sin responsable a revisar" : " tareas a revisar") }));
 }
 
 // ---- Proyectos en columnas ----
