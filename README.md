@@ -1,13 +1,12 @@
 # Alaya Portfolio 360
 
-Web interna de Alaya Capital: dashboards de Airtable incrustados + gestión de tareas.
+Web interna de Alaya Capital: dashboards de Airtable incrustados, reuniones y gestión de tareas.
 
 - `public/index.html`: la web. Para sumar un dashboard, agregá una línea en `SECCIONES` con el código `shr…` del link público de Airtable.
-- `netlify/functions/api.js`: valida el login de Google (solo `@alaya.capital`) y lee/escribe la tabla **Meeting Tasks** de Airtable.
+- `netlify/functions/api.js`: valida el login de Google (solo `@alaya.capital`) y lee/escribe las tablas **Tasks**, **Projects**, **Team** y **Meeting Analysis** de Airtable.
+- `server.js`: servidor Node que sirve la web y la API (es lo que corre en Railway). Railway publica solo cada push a `main`.
 
-Netlify publica solo cada push a `main`.
-
-## Variables de entorno (Netlify → Project configuration → Environment variables)
+## Variables de entorno (Railway → servicio → Variables)
 
 | Variable | Valor |
 |---|---|
@@ -15,4 +14,4 @@ Netlify publica solo cada push a `main`.
 | `AIRTABLE_TOKEN` | Token de Airtable con `data.records:read` y `data.records:write` sobre la base |
 | `AIRTABLE_BASE_ID` | `appSArF5SM32ZNUMk` |
 
-Si la tabla Meeting Tasks tiene un campo de texto **Updated By**, ahí queda el mail de quien hizo el último cambio.
+Si se cambia el dominio de la web, hay que agregarlo en Google Cloud → Credenciales → ID de cliente → "Orígenes autorizados de JavaScript".

@@ -187,6 +187,9 @@
   .reu .quienes{margin-top:12px;font-size:14px;color:var(--gris);line-height:1.45}
   .reu .quienes b{color:var(--texto);font-weight:600}
   .reu .texto{margin-top:12px;line-height:1.6;white-space:pre-line}
+  .reu.reu-pend{border-style:dashed;color:var(--gris)}
+  .reu.reu-error{border-color:#F3C4BF;background:var(--rojo-fondo)}
+  .reu.reu-error .texto{color:var(--rojo)}
   /* ---- Cargar reunión ---- */
   #cargar{overflow:auto;padding:26px 28px 60px}
   #cargar h2{font-size:26px;letter-spacing:-.02em}
@@ -345,18 +348,50 @@ function datosToken(t) {
   } catch (e) { return null; }
 }
 
-async function api(metodo, accion, cuerpo) {
-  const r = await fetch(`${API}?action=${accion}`, {
-    method: metodo,
-    headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
-    body: cuerpo ? JSON.stringify(cuerpo) : undefined,
-  });
+async function api(metodo, accion, cuerpo, reintento) {
+  // Si el pase de Google está por vencer, se renueva antes de pedir (así no se pierde lo que se estaba guardando).
+  if (token && accion !== "me" && tokenVence() < Date.now() + 90000) await renovarSesion();
+  let r;
+  try {
+    r = await fetch(`${API}?action=${accion}`, {
+      method: metodo,
+      headers: Object.assign({ "Content-Type": "application/json" }, token ? { Authorization: "Bearer " + token } : {}),
+      body: cuerpo ? JSON.stringify(cuerpo) : undefined,
+    });
+  } catch (e) {
+    throw new Error("Sin conexión. Revisá internet y volvé a intentar");
+  }
   let j = {};
   try { j = await r.json(); } catch (e) {}
-  if (r.status === 401 && token) { cerrar("Tu sesión venció. Entrá de nuevo."); throw new Error("Sesión vencida"); }
-  if (!r.ok) throw new Error(j.error || "No se pudo conectar");
+  if (r.status === 401 && token) {
+    if (!reintento && accion !== "me" && await renovarSesion()) return api(metodo, accion, cuerpo, true);
+    cerrar("Tu sesión venció. Entrá de nuevo."); throw new Error("Sesión vencida");
+  }
+  if (r.status === 503 && !reintento) { await new Promise((ok) => setTimeout(ok, 1500)); return api(metodo, accion, cuerpo, true); }
+  if (!r.ok) throw new Error(j.error || (r.status >= 500 ? "Falló el servidor, probá de nuevo" : "No se pudo completar"));
   return j;
 }
+
+// ---- Renovación silenciosa del pase de Google (dura 1 hora) ----
+const tokenVence = () => { const d = token && datosToken(token); return d && d.exp ? d.exp * 1000 : 0; };
+let renovando = null;
+function renovarSesion() {
+  if (renovando) return renovando;
+  renovando = new Promise((ok) => {
+    if (!(window.google && google.accounts && google.accounts.id)) return ok(false);
+    let listo = false;
+    const fin = (v) => { if (!listo) { listo = true; renovando = null; ok(v); } };
+    pendienteRenovacion = (cred) => { token = cred; guardarSesion(cred); fin(true); };
+    try {
+      google.accounts.id.prompt((n) => { if (n.isNotDisplayed && n.isNotDisplayed() || n.isSkippedMoment && n.isSkippedMoment()) fin(false); });
+    } catch (e) { fin(false); }
+    setTimeout(() => fin(false), 8000);
+  });
+  return renovando;
+}
+let pendienteRenovacion = null;
+// Cada tanto, si el pase está por vencer, se renueva solo.
+setInterval(() => { if (token && tokenVence() && tokenVence() < Date.now() + 5 * 60000) renovarSesion(); }, 60000);
 
 function avisar(texto, error) {
   const a = $("aviso");
@@ -415,7 +450,11 @@ async function iniciar() {
     await esperarGoogle();
     google.accounts.id.initialize({
       client_id: cfg.clientId, hd: cfg.domain, auto_select: true,
-      callback: (r) => { avisoAcceso(""); entrar(r.credential); },
+      callback: (r) => {
+        avisoAcceso("");
+        if (pendienteRenovacion) { const f = pendienteRenovacion; pendienteRenovacion = null; f(r.credential); $("correo").textContent = correo; return; }
+        entrar(r.credential);
+      },
     });
     google.accounts.id.renderButton($("botonGoogle"), { theme: "outline", size: "large", text: "signin_with", shape: "pill", locale: "es" });
   } catch (e) { avisoAcceso(e.message); }
@@ -472,10 +511,18 @@ async function cargarReuniones() {
     if (!j.meetings.length) return lista.replaceChildren(el("div", { className: "vacio", textContent: "Todavía no hay reuniones analizadas." }));
     lista.replaceChildren(...j.meetings.map((r) => {
       const titulo = r.title.replace(/^\d{4}-\d{2}-\d{2}\s*·\s*/, "") || "Reunión de portfolio";
-      const t = el("article", { className: "reu" }, [
-        el("div", { className: "fecha", textContent: fechaLarga(r.date) }),
+      const t = el("article", { className: "reu" + (r.status === "Procesado" ? "" : " reu-" + (r.status === "Error" ? "error" : "pend")) }, [
+        el("div", { className: "fecha", textContent: fechaLarga(r.date) || "Sin fecha" }),
         el("h3", { textContent: titulo }),
       ]);
+      if (r.status === "Error") {
+        t.append(el("p", { className: "texto" }, [el("b", { textContent: "No se pudo analizar. " }), r.error || "Revisala en Airtable (tabla Meeting Analysis)."]));
+        return t;
+      }
+      if (r.status !== "Procesado") {
+        t.append(el("p", { className: "texto", textContent: "Cargada, esperando el análisis. Corre cada 30 minutos en horario laboral." }));
+        return t;
+      }
       if (r.attendees) t.append(el("p", { className: "quienes" }, [el("b", { textContent: "Participaron: " }), r.attendees]));
       t.append(el("p", { className: "texto", textContent: r.summary || r.detail || "Sin resumen." }));
       return t;

@@ -1,6 +1,6 @@
 // API de Portfolio 360: valida el login de Google (solo el dominio permitido)
 // y lee/escribe la tabla "Tasks" de Airtable. El token de Airtable vive
-// solo acá (variables de entorno de Netlify), nunca llega al navegador.
+// solo acá (variables de entorno del servidor), nunca llega al navegador.
 const BASE = process.env.AIRTABLE_BASE_ID;
 const TOKEN = process.env.AIRTABLE_TOKEN;
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -26,7 +26,12 @@ async function usuario(event) {
   const ahora = Date.now() / 1000;
   const c = sesiones.get(token);
   if (c && c.exp > ahora) return c.email;
-  const r = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(token));
+  let r;
+  try {
+    r = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(token), { signal: AbortSignal.timeout(10000) });
+  } catch (e) {
+    throw new HttpError(503, "No se pudo verificar la sesión con Google, probá de nuevo");
+  }
   if (!r.ok) throw new HttpError(401, "Sesión vencida");
   const t = await r.json();
   if (t.aud !== CLIENT_ID || Number(t.exp) <= ahora) throw new HttpError(401, "Sesión vencida");
@@ -39,20 +44,37 @@ async function usuario(event) {
   return email;
 }
 
+const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
+// Airtable permite 5 pedidos por segundo por base: ante 429, error de red o caída se reintenta con pausa.
 async function airtable(path, opts = {}) {
-  const r = await fetch(`https://api.airtable.com/v0/${BASE}/${path}`, {
-    ...opts,
-    headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
-  });
-  const texto = await r.text();
-  let data = {};
-  try { data = JSON.parse(texto); } catch (e) { /* respuesta no JSON */ }
-  if (!r.ok) {
-    const err = new HttpError(502, "Airtable: " + ((data.error && (data.error.message || data.error.type)) || r.status));
+  let ultimo;
+  for (let intento = 0; intento < 4; intento++) {
+    if (intento) await espera(600 * 2 ** intento);
+    let r;
+    try {
+      r = await fetch(`https://api.airtable.com/v0/${BASE}/${path}`, {
+        ...opts,
+        headers: { Authorization: "Bearer " + TOKEN, "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (e) {
+      ultimo = new HttpError(503, "No se pudo conectar con Airtable, probá de nuevo");
+      continue;
+    }
+    const texto = await r.text();
+    let data = {};
+    try { data = JSON.parse(texto); } catch (e) { /* respuesta no JSON */ }
+    if (r.ok) return data;
+    const err = new HttpError(r.status === 429 ? 503 : 502,
+      r.status === 429 ? "Airtable está saturado, probá en unos segundos" : "Airtable: " + ((data.error && (data.error.message || data.error.type)) || r.status));
     err.tipo = data.error && data.error.type;
-    throw err;
+    const msg = (data.error && data.error.message) || "";
+    const m = /Unknown field name: "([^"]+)"/.exec(msg);
+    if (m) err.campo = m[1];
+    if (r.status !== 429 && r.status < 500) throw err; // error de datos: no tiene sentido reintentar
+    ultimo = err;
   }
-  return data;
+  throw ultimo;
 }
 
 async function listar(tabla, campos) {
@@ -71,7 +93,7 @@ async function listar(tabla, campos) {
 
 const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
 const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
-// El estado manda, pero si alguien tildó o destildó "Done" desde Airtable se respeta eso.
+// El estado manda; si alguien tildó "Done" desde Airtable sin cambiar el estado, también cuenta como terminada.
 function estado(f) {
   const s = ESTADOS.includes(f["Status"]) ? f["Status"] : "To do";
   if (f["Done"]) return "Done";
@@ -164,18 +186,23 @@ function campos(b) {
   return f;
 }
 
-// "Updated By" y "Status" son campos opcionales: si alguno no existe en la tabla, se guarda sin él.
+// Algunos campos son opcionales: si la tabla no los tiene, se guarda sin ellos. Si falta otro, se avisa cuál.
+const OPCIONALES = new Set([AUDIT_FIELD, "Status", "Source", "Priority", "Start Date", "Next step", "URL", "Minuta de reunión", "Notes", "Project"]);
 async function guardar(metodo, ruta, fields, email) {
   const f = { ...fields, [AUDIT_FIELD]: email };
-  for (const opcional of [null, AUDIT_FIELD, "Status"]) {
-    if (opcional) delete f[opcional];
+  for (let i = 0; i < OPCIONALES.size + 1; i++) {
     try {
       return await airtable(ruta, { method: metodo, body: JSON.stringify({ fields: f, typecast: true }) });
     } catch (e) {
-      if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e;
+      if (e.tipo !== "UNKNOWN_FIELD_NAME" || !e.campo || !OPCIONALES.has(e.campo) || !(e.campo in f)) {
+        if (e.tipo === "UNKNOWN_FIELD_NAME") throw new HttpError(502, `Falta el campo "${e.campo || "?"}" en la tabla Tasks de Airtable`);
+        throw e;
+      }
+      console.warn(`La tabla no tiene el campo "${e.campo}"; se guarda sin él`);
+      delete f[e.campo];
     }
   }
-  throw new HttpError(502, "Airtable: falta un campo en la tabla de tareas");
+  throw new HttpError(502, "No se pudo guardar en Airtable");
 }
 
 exports.handler = async (event) => {
@@ -189,14 +216,15 @@ exports.handler = async (event) => {
     if (accion === "me") return json(200, { email });
     if (accion === "meetings" && m === "GET") {
       // "Simple Summary" es opcional: si el campo no existe, se usa el resumen ejecutivo.
-      const base = ["Title", "Meeting Date", "Attendees", "Executive Summary", "Status"];
+      const base = ["Title", "Meeting Date", "Attendees", "Executive Summary", "Status", "Error Detail"];
       let rs;
       try { rs = await listar("Meeting Analysis", [...base, "Simple Summary"]); }
       catch (e) { if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e; rs = await listar("Meeting Analysis", base); }
       const meetings = rs
-        .filter((x) => x.fields["Status"] === "Procesado")
         .map((x) => ({
           id: x.id,
+          status: x.fields["Status"] || "Nuevo",
+          error: x.fields["Status"] === "Error" ? String(x.fields["Error Detail"] || "").slice(0, 300) : "",
           title: x.fields["Title"] || "",
           date: x.fields["Meeting Date"] || "",
           attendees: x.fields["Attendees"] || "",

@@ -13,8 +13,10 @@ http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   if (url.pathname === "/.netlify/functions/api" || url.pathname === "/api") {
     let body = "";
-    req.on("data", (d) => { body += d; if (body.length > 200000) req.destroy(); });
+    let demasiado = false;
+    req.on("data", (d) => { body += d; if (body.length > 1500000 && !demasiado) { demasiado = true; res.writeHead(413, { ...SEGURIDAD, "Content-Type": "application/json" }); res.end('{"error":"El contenido es demasiado grande"}'); } });
     req.on("end", async () => {
+      if (demasiado) return;
       const r = await handler({
         httpMethod: req.method, headers: req.headers, body,
         queryStringParameters: Object.fromEntries(url.searchParams),
