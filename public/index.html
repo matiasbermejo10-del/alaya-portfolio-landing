@@ -67,6 +67,21 @@
   .persona.activo .ini{background:rgba(255,255,255,.2);color:var(--blanco)}
   .persona.activo .num{color:rgba(255,255,255,.8)}
   .persona.nueva-p{border-style:dashed;color:var(--bordo);padding:5px 14px}
+  .falta{display:inline-flex;align-items:center;gap:5px;background:var(--rojo-fondo);color:var(--rojo);border-radius:6px;padding:2px 7px;font-size:12px;font-weight:600;white-space:nowrap}
+  .fila .campo.vacio-r,.fila select.pill.p5.vacio-r,#panel .campo.vacio-r,#panel select.pill.vacio-r{box-shadow:inset 0 0 0 2px var(--rojo);background:var(--rojo-fondo)}
+  .tarjeta.incompleta{border-color:#F3C4BF}
+  .pestanas button .rojo{color:var(--rojo)}
+  .pestanas button.activo .rojo{color:#fff}
+  .pregunta{margin-top:14px;background:#FFF7ED;border:1px solid #F5D9B5;border-radius:14px;padding:14px 16px}
+  .pregunta h3{font-size:15px;margin-bottom:8px}
+  .pregunta .pf{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:7px 0;border-top:1px solid #F5E6D3}
+  .pregunta .pf:first-of-type{border-top:0}
+  .pregunta .pf span{line-height:1.4}
+  .pregunta .pf small{display:block;color:var(--gris);font-size:12px}
+  .pregunta .pf button{border:1px solid var(--bordo);background:var(--blanco);color:var(--bordo);border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .pregunta .pf button:hover{background:var(--bordo);color:#fff}
+  .globo{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--rojo);color:#fff;font-size:11.5px;font-weight:700;margin-left:auto}
+  nav button.activo .globo{background:var(--rojo)}
   .barra{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
   .pestanas{display:flex;background:var(--blanco);border:1px solid var(--borde);border-radius:10px;padding:3px;flex-wrap:wrap}
   .pestanas button{border:0;background:none;padding:7px 13px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--gris)}
@@ -443,6 +458,7 @@ async function entrar(t) {
     $("correo").textContent = correo;
     $("acceso").hidden = true; $("app").hidden = false;
     abrir(location.hash.slice(1) || SECCIONES[0].id);
+    if (!tareasCargadas) cargarTareas(); // para el aviso rojo del menú
   } catch (e) {
     token = ""; guardarSesion("");
     avisoAcceso(e.message === "Sesión vencida" ? "" : e.message);
@@ -659,14 +675,19 @@ const rangoP = (t) => { const i = PRIORIDADES.indexOf(t.priority); return i < 0 
 const fechaCorta = (f) => f ? f.split("-").reverse().slice(0, 2).join("/") : "";
 const claseE = (s) => "pill e" + Math.max(0, ESTADOS.indexOf(s));
 const claseP = (p) => "pill p" + (PRIORIDADES.includes(p) ? PRIORIDADES.indexOf(p) : 5);
+// Una tarea abierta está "a revisar" si le falta responsable, proyecto, prioridad o deadline.
+const FALTANTES = [["owner", "responsable"], ["projectId", "proyecto"], ["priority", "prioridad"], ["due", "deadline"]];
+const faltantes = (t) => cerrada(t) ? [] : FALTANTES.filter(([k]) => !t[k]).map(([, n]) => n);
+const incompleta = (t) => faltantes(t).length > 0;
 const PESTANAS = [
+  ["revisar", "A revisar", incompleta],
   ["abiertas", "Abiertas", (t) => !cerrada(t)],
   ...ESTADOS.map((e) => [e, e, (t) => t.status === e]),
   ["vencidas", "Vencidas", vencida],
   ["todas", "Todas", () => true],
 ];
 const PESTANA_INICIAL = "abiertas";
-const ordenar = (a, b) => (cerrada(a) - cerrada(b)) || (rangoP(a) - rangoP(b)) ||
+const ordenar = (a, b) => (cerrada(a) - cerrada(b)) || (filtro.owner ? incompleta(b) - incompleta(a) : 0) || (rangoP(a) - rangoP(b)) ||
   (a.due || "9999").localeCompare(b.due || "9999") || a.task.localeCompare(b.task, "es");
 
 async function cargarTareas() {
@@ -783,8 +804,9 @@ function pintar() {
   $("pestanas").hidden = vista === "kanban" || vista === "calendario";
   $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
     el("button", { type: "button", className: filtro.pestana === id ? "activo" + (id !== PESTANA_INICIAL ? " verde" : "") : "", onclick: () => { filtro.pestana = id; pintar(); } },
-      [nombre, el("b", { textContent: porPersona.filter(f).length })])));
+      [nombre, el("b", { className: id === "revisar" && porPersona.filter(f).length ? "rojo" : "", textContent: porPersona.filter(f).length })])));
   marcarFiltros();
+  globoMenu();
 
   const lista = $("lista");
   if (vista === "kanban") return pintarKanban(lista, porPersona);
@@ -792,14 +814,15 @@ function pintar() {
   if (vista === "columnas" || vista === "prioridad")
     return pintarColumnas(lista, porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]), vista === "prioridad" ? "priority" : "projectId");
   const visibles = porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]).sort(ordenar);
+  const pregunta = bloqueSinDueno(base);
   if (!visibles.length) {
     const v = el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros. " : "Todavía no hay tareas." });
     if (tareas.length && !$("filtrosOn").hidden) v.append(el("button", { type: "button", className: "primario", textContent: "Limpiar filtros", onclick: limpiarFiltros }));
-    lista.replaceChildren(v);
+    lista.replaceChildren(...(pregunta ? [pregunta] : []), v);
     return;
   }
   const grupos = [[null, visibles]];
-  lista.replaceChildren(...grupos.filter((g) => g[1].length).map(([titulo, ts, pri]) => {
+  lista.replaceChildren(...(pregunta ? [pregunta] : []), ...grupos.filter((g) => g[1].length).map(([titulo, ts, pri]) => {
     const cab = el("div", { className: "fila cabecera" });
     ["Estado", "Tarea", "Prioridad", "Responsable", "Deadline"].forEach((x) => cab.append(el("div", { textContent: x })));
     const g = el("div", { className: "grupo" });
@@ -817,6 +840,8 @@ function fila(t) {
   const f = el("div", { className: "fila" + (cerrada(t) ? " hecha" : "") + (vencida(t) ? " vencida" : "") });
   const cTarea = el("div", { className: "c-tarea" }, [el("button", { type: "button", className: "titulo", textContent: t.task, onclick: () => abrirPanel(t) })]);
   const meta = el("div", { className: "meta" });
+  const falta = faltantes(t);
+  if (falta.length) meta.append(el("span", { className: "falta", textContent: "Falta: " + falta.join(", ") }));
   if (t.projectId) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
   if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
   if (t.meetingDate) meta.append(el("span", { textContent: "Reunión " + fechaCorta(t.meetingDate) }));
@@ -824,15 +849,42 @@ function fila(t) {
   if (meta.childNodes.length) cTarea.append(meta);
   if (t.next && !cerrada(t)) cTarea.append(el("div", { className: "prox", textContent: t.next }));
 
-  const fecha = el("input", { className: "campo", type: "date", value: t.due });
+  const fecha = el("input", { className: "campo" + (!cerrada(t) && !t.due ? " vacio-r" : ""), type: "date", value: t.due });
   fecha.setAttribute("aria-label", "Deadline");
   fecha.onchange = () => cambiar(t, { due: fecha.value });
+  const prio = selectPrioridad(t), dueno = selectPersona(t, "campo");
+  if (!cerrada(t) && !t.priority) prio.classList.add("vacio-r");
+  if (!cerrada(t) && !t.owner) dueno.classList.add("vacio-r");
 
   f.append(el("div", { className: "c-estado" }, [selectEstado(t)]), cTarea,
-    el("div", { className: "c-prio" }, [selectPrioridad(t)]),
-    el("div", { className: "c-owner" }, [selectPersona(t, "campo")]),
+    el("div", { className: "c-prio" }, [prio]),
+    el("div", { className: "c-owner" }, [dueno]),
     el("div", { className: "c-fecha" }, [fecha]));
   return f;
+}
+
+// Con una persona elegida: las tareas sin responsable se ofrecen para que las reclame.
+function bloqueSinDueno(base) {
+  if (!filtro.owner) return null;
+  const sueltas = base.filter((t) => !t.owner && !cerrada(t)).sort(ordenar);
+  if (!sueltas.length) return null;
+  const caja = el("div", { className: "pregunta" }, [el("h3", { textContent: sueltas.length === 1 ? "Hay 1 tarea sin responsable, ¿es tuya?" : `Hay ${sueltas.length} tareas sin responsable, ¿alguna es tuya?` })]);
+  sueltas.slice(0, 8).forEach((t) => {
+    const info = [t.projectId && nombreProyecto(t.projectId), t.companyId && nombreEmpresa(t.companyId), t.meetingDate && "Reunión " + fechaCorta(t.meetingDate)].filter(Boolean).join(" · ");
+    const txt = el("span", { textContent: t.task });
+    if (info) txt.append(el("small", { textContent: info }));
+    caja.append(el("div", { className: "pf" }, [txt, el("button", { type: "button", textContent: "Es mía", onclick: () => cambiar(t, { owner: filtro.owner }) })]));
+  });
+  if (sueltas.length > 8) caja.append(el("div", { className: "pf" }, [el("span", { textContent: `… y ${sueltas.length - 8} más en "Sin asignar"` })]));
+  return caja;
+}
+
+// Numerito rojo en el menú con las tareas a revisar.
+function globoMenu() {
+  const b = $("m-tareas");
+  b.querySelectorAll(".globo").forEach((g) => g.remove());
+  const n = tareas.filter(incompleta).length;
+  if (n) b.append(el("span", { className: "globo", textContent: n, title: n + " tareas a revisar" }));
 }
 
 // ---- Proyectos en columnas ----
@@ -1003,6 +1055,8 @@ function tarjeta(t, sinProyecto, sinPrioridad) {
   c.append(el("div", { className: "t", textContent: t.task }));
   const meta = el("div", { className: "meta" });
   meta.style.padding = "0";
+  const falta = faltantes(t);
+  if (falta.length) { c.classList.add("incompleta"); meta.append(el("span", { className: "falta", textContent: "Falta: " + falta.join(", ") })); }
   if (t.projectId && !sinProyecto) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
   if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
   if (meta.childNodes.length) c.append(meta);
@@ -1046,13 +1100,18 @@ function abrirPanel(t) {
 
   const grilla = el("div", { className: "grilla" });
   const fila2 = (etiqueta, ...nodos) => grilla.append(el("span", { textContent: etiqueta }), el("div", {}, nodos));
+  const falta = faltantes(t);
+  if (falta.length) grilla.append(el("span"), el("div", {}, [el("span", { className: "falta", textContent: "Falta completar: " + falta.join(", ") })]));
   fila2("Estado", selectEstado(t));
-  fila2("Prioridad", selectPrioridad(t));
-  fila2("Responsable", selectPersona(t, "campo"));
+  const prioP = selectPrioridad(t), duenoP = selectPersona(t, "campo");
+  if (!cerrada(t)) { if (!t.priority) prioP.classList.add("vacio-r"); if (!t.owner) duenoP.classList.add("vacio-r"); if (!t.projectId) proyecto.classList.add("vacio-r"); }
+  fila2("Prioridad", prioP);
+  fila2("Responsable", duenoP);
   fila2("Proyecto", proyecto);
   fila2("Empresa", empresa);
   fila2("Inicio", fechaI("start"));
-  fila2("Deadline", fechaI("due"));
+  const dl = fechaI("due"); if (!cerrada(t) && !t.due) dl.classList.add("vacio-r");
+  fila2("Deadline", dl);
   fila2("Próximo paso", campoTexto(t.next, "next", { props: { placeholder: "Qué sigue…", maxLength: 500 } }));
   fila2("Notas", campoTexto(t.notes, "notes", { tag: "textarea", props: { className: "campo notas", placeholder: "Notas, contexto, links…" } }));
   fila2("URL", campoTexto(t.url, "url", { props: { type: "url", placeholder: "https://…" } }), link(t.url));
@@ -1089,7 +1148,7 @@ async function cambiar(t, cambios) {
     Object.assign(t, antes); avisar("No se guardó: " + e.message, true);
   }
   pintar();
-  if (panelAbierto === t && ("status" in cambios || "priority" in cambios)) abrirPanel(t); // refresca colores
+  if (panelAbierto === t) abrirPanel(t); // refresca colores y marcas de lo que falta
 }
 
 async function eliminar(t) {
