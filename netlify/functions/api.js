@@ -1,11 +1,11 @@
 // API de Portfolio 360: valida el login de Google (solo el dominio permitido)
-// y lee/escribe la tabla "Meeting Tasks" de Airtable. El token de Airtable vive
+// y lee/escribe la tabla "Tasks" de Airtable. El token de Airtable vive
 // solo acá (variables de entorno de Netlify), nunca llega al navegador.
 const BASE = process.env.AIRTABLE_BASE_ID;
 const TOKEN = process.env.AIRTABLE_TOKEN;
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const DOMAIN = (process.env.ALLOWED_DOMAIN || "alaya.capital").toLowerCase();
-const TASKS = "Meeting Tasks";
+const TASKS = "Tasks";
 const AUDIT_FIELD = "Updated By";
 
 const json = (statusCode, body) => ({
@@ -69,25 +69,38 @@ async function listar(tabla, campos) {
   return out;
 }
 
-const ESTADOS = ["Pendiente", "En curso", "Esperando respuesta", "Retomar en reunión", "Hecha", "Descartada"];
-const CERRADOS = ["Hecha", "Descartada"];
+const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
+const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
 // El estado manda, pero si alguien tildó o destildó "Done" desde Airtable se respeta eso.
 function estado(f) {
-  const s = ESTADOS.includes(f["Status"]) ? f["Status"] : "";
-  const done = !!f["Done"];
-  if (done) return CERRADOS.includes(s) ? s : "Hecha";
-  return s && !CERRADOS.includes(s) ? s : "Pendiente";
+  const s = ESTADOS.includes(f["Status"]) ? f["Status"] : "To do";
+  if (f["Done"]) return "Done";
+  return s;
 }
 
-const aTarea = (x) => ({
-  id: x.id,
-  task: x.fields["Task"] || "",
-  companyId: (x.fields["Company"] || [])[0] || "",
-  owner: x.fields["Owner"] || "",
-  due: x.fields["Due Date"] || "",
-  meetingDate: x.fields["Meeting Date"] || "",
-  status: estado(x.fields),
-});
+const CAMPOS_TAREA = ["Name", "Owner", "Status", "Priority", "Start Date", "Deadline", "Project", "Company",
+  "Meeting", "Meeting Date", "Notes", "Next step", "URL", "Minuta de reunión", "Attachments", "Done", "Source"];
+const aTarea = (x) => {
+  const f = x.fields;
+  return {
+    id: x.id,
+    task: f["Name"] || "",
+    owner: f["Owner"] || "",
+    status: estado(f),
+    priority: PRIORIDADES.includes(f["Priority"]) ? f["Priority"] : "",
+    start: f["Start Date"] || "",
+    due: f["Deadline"] || "",
+    projectId: (f["Project"] || [])[0] || "",
+    companyId: (f["Company"] || [])[0] || "",
+    meetingDate: f["Meeting Date"] || "",
+    notes: f["Notes"] || "",
+    next: f["Next step"] || "",
+    url: f["URL"] || "",
+    minuta: f["Minuta de reunión"] || "",
+    attachments: (f["Attachments"] || []).map((a) => ({ url: a.url, name: a.filename || "archivo" })),
+    source: f["Source"] || "",
+  };
+};
 
 // ---- Equipo (tabla "Team"): la lista fija de responsables ----
 const plano = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
@@ -112,26 +125,41 @@ function canonico(nombre, equipo) {
 const esId = (s) => typeof s === "string" && /^rec[A-Za-z0-9]{14}$/.test(s);
 const esFecha = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
+const esLink = (s) => typeof s === "string" && /^https?:\/\/\S+$/i.test(s.trim());
 function campos(b) {
   const f = {};
   if ("task" in b) {
     const t = String(b.task || "").trim().slice(0, 2000);
     if (!t) throw new HttpError(400, "La tarea no puede quedar vacía");
-    f["Task"] = t;
+    f["Name"] = t;
   }
   if ("status" in b) {
     if (!ESTADOS.includes(b.status)) throw new HttpError(400, "Estado inválido");
     f["Status"] = b.status;
-    f["Done"] = CERRADOS.includes(b.status); // mantiene al día alertas e interfaces de Airtable
+    f["Done"] = b.status === "Done"; // mantiene al día alertas e interfaces de Airtable
+  }
+  if ("priority" in b) {
+    if (b.priority && !PRIORIDADES.includes(b.priority)) throw new HttpError(400, "Prioridad inválida");
+    f["Priority"] = b.priority || null;
   }
   if ("owner" in b) f["Owner"] = String(b.owner || "").trim().slice(0, 120);
-  if ("due" in b) {
-    if (b.due && !esFecha(b.due)) throw new HttpError(400, "Fecha inválida");
-    f["Due Date"] = b.due || null;
+  for (const [k, campo] of [["due", "Deadline"], ["start", "Start Date"]]) {
+    if (!(k in b)) continue;
+    if (b[k] && !esFecha(b[k])) throw new HttpError(400, "Fecha inválida");
+    f[campo] = b[k] || null;
   }
-  if ("companyId" in b) {
-    if (b.companyId && !esId(b.companyId)) throw new HttpError(400, "Empresa inválida");
-    f["Company"] = b.companyId ? [b.companyId] : [];
+  for (const [k, campo, nombre] of [["companyId", "Company", "Empresa"], ["projectId", "Project", "Proyecto"]]) {
+    if (!(k in b)) continue;
+    if (b[k] && !esId(b[k])) throw new HttpError(400, nombre + " inválida");
+    f[campo] = b[k] ? [b[k]] : [];
+  }
+  if ("notes" in b) f["Notes"] = String(b.notes || "").slice(0, 20000);
+  if ("next" in b) f["Next step"] = String(b.next || "").trim().slice(0, 500);
+  for (const [k, campo] of [["url", "URL"], ["minuta", "Minuta de reunión"]]) {
+    if (!(k in b)) continue;
+    const v = String(b[k] || "").trim();
+    if (v && !esLink(v)) throw new HttpError(400, "El link tiene que empezar con http");
+    f[campo] = v || null;
   }
   return f;
 }
@@ -214,26 +242,27 @@ exports.handler = async (event) => {
       try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
     }
     if (m === "GET") {
-      const base = ["Task", "Company", "Owner", "Due Date", "Meeting Date", "Done"];
-      const [ts, cs, equipo] = await Promise.all([
-        listar(TASKS, [...base, "Status"]).catch((e) => {
-          if (e.tipo !== "UNKNOWN_FIELD_NAME") throw e;
-          return listar(TASKS, base);
-        }),
+      const [ts, cs, ps, equipo] = await Promise.all([
+        listar(TASKS, CAMPOS_TAREA),
         listar("Portfolio", ["Name"]),
+        listar("Projects", ["Name", "Status"]),
         leerEquipo(),
       ]);
+      const projects = ps
+        .map((p) => ({ id: p.id, name: p.fields["Name"] || "", done: p.fields["Status"] === "Completed" }))
+        .filter((p) => p.name)
+        .sort((a, z) => (a.done - z.done) || a.name.localeCompare(z.name, "es"));
       const tasks = ts.map(aTarea);
       tasks.forEach((t) => { t.owner = canonico(t.owner, equipo); });
       const companies = cs
         .map((c) => ({ id: c.id, name: c.fields["Name"] || "" }))
         .filter((c) => c.name)
         .sort((a, z) => a.name.localeCompare(z.name, "es"));
-      return json(200, { tasks, companies, team: equipo });
+      return json(200, { tasks, companies, projects, team: equipo });
     }
     if (m === "POST") {
-      const f = campos(b);
-      if (!f["Task"]) throw new HttpError(400, "Escribí la tarea");
+      const f = { Status: "To do", Source: "Manual", ...campos(b) };
+      if (!f["Name"]) throw new HttpError(400, "Escribí la tarea");
       const r = await guardar("POST", tabla, f, email);
       console.log(`${email} creó ${r.id}`);
       return json(200, { task: aTarea(r) });

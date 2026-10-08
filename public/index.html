@@ -51,16 +51,17 @@
   #tareas{overflow:auto;padding:26px 28px 60px}
   #tareas h2{font-size:26px;letter-spacing:-.02em}
   .sub{color:var(--gris);margin-top:4px}
-  .nueva{margin-top:20px;background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:14px;display:grid;grid-template-columns:minmax(200px,1fr) 170px 150px 150px auto;gap:10px}
+  .cab-t{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap}
+  .nueva{margin-top:20px;background:var(--blanco);border:1px solid var(--borde);border-radius:14px;padding:14px;display:grid;grid-template-columns:minmax(200px,1fr) 170px 130px 170px 150px auto;gap:10px}
   .campo{border:1px solid var(--borde);border-radius:9px;padding:9px 10px;background:var(--blanco);width:100%;min-width:0}
   .campo:focus{outline:2px solid var(--bordo);outline-offset:-1px}
   .primario{background:var(--bordo);color:var(--blanco);border:0;border-radius:9px;padding:9px 18px;font-weight:600;cursor:pointer;white-space:nowrap}
   .primario:hover{background:var(--bordo-osc)}
   .primario:disabled{opacity:.6;cursor:default}
-  .personas{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+  .personas{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
   .persona{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--borde);background:var(--blanco);border-radius:999px;padding:5px 14px 5px 5px;cursor:pointer;font-weight:600;font-size:14px}
   .persona:hover{border-color:var(--bordo)}
-  .persona .ini{width:28px;height:28px;border-radius:50%;background:var(--crema);color:var(--bordo);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+  .persona .ini,.ini{width:28px;height:28px;border-radius:50%;background:var(--crema);color:var(--bordo);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none}
   .persona .num{font-weight:500;color:var(--gris)}
   .persona.activo{background:var(--bordo);border-color:var(--bordo);color:var(--blanco)}
   .persona.activo .ini{background:rgba(255,255,255,.2);color:var(--blanco)}
@@ -71,24 +72,58 @@
   .pestanas button{border:0;background:none;padding:7px 13px;border-radius:7px;cursor:pointer;font-weight:500;color:var(--gris)}
   .pestanas button.activo{background:var(--bordo);color:var(--blanco)}
   .pestanas b{font-weight:600;margin-left:5px;opacity:.85}
-  .barra .campo{width:auto;max-width:190px}
+  .barra .campo{width:auto;max-width:180px}
   .barra input[type=search]{flex:1;min-width:150px;max-width:none}
-  #lista{margin-top:14px;background:var(--blanco);border:1px solid var(--borde);border-radius:14px;overflow:hidden}
-  .fila{display:grid;grid-template-columns:204px minmax(200px,1fr) 150px 130px 146px 34px;gap:10px;align-items:start;padding:11px 14px;border-top:1px solid var(--borde)}
-  .fila:first-child{border-top:0}
-  .fila.cabecera{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--gris);font-weight:600;background:#FBF8F6;align-items:center}
-  select.estado{border:0;border-radius:999px;padding:6px 10px;font-weight:600;font-size:13.5px;width:100%;cursor:pointer;margin-top:2px}
+  #lista{margin-top:14px}
+  .grupo{background:var(--blanco);border:1px solid var(--borde);border-radius:14px;overflow:hidden;margin-bottom:14px}
+  .grupo h3{font-size:14px;padding:12px 16px;background:#FBF8F6;border-bottom:1px solid var(--borde);display:flex;align-items:center;gap:10px}
+  .grupo h3 .n{color:var(--gris);font-weight:500}
+  .fila{display:grid;grid-template-columns:148px minmax(220px,1fr) 124px 176px 146px;gap:10px;align-items:start;padding:11px 14px;border-top:1px solid var(--borde)}
+  .fila:first-of-type{border-top:0}
+  .fila.cabecera{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--gris);font-weight:600;align-items:center;padding-top:9px;padding-bottom:9px}
+  select.pill{border:0;border-radius:999px;padding:6px 10px;font-weight:600;font-size:13px;width:100%;cursor:pointer;margin-top:2px}
   .e0{background:#EEEAE7;color:#4A4245}.e1{background:#E3EEFB;color:#1D4E89}.e2{background:#FCF1D8;color:#7A5200}
-  .e3{background:#EFE6F9;color:#5B2E91}.e4{background:#E3F4EA;color:#1E6B41}.e5{background:#F1F1F1;color:#777}
+  .e3{background:#EFE6F9;color:#5B2E91}.e4{background:#E3F4EA;color:#1E6B41}
+  .p0{background:#FDE2E0;color:#A1271B}.p1{background:#FDEBD9;color:#9A4A0B}.p2{background:#FCF4D6;color:#7A5C00}
+  .p3{background:#EEEAE7;color:#4A4245}.p4{background:#F1F1F1;color:#777}.p5{background:#fff;color:var(--gris);box-shadow:inset 0 0 0 1px var(--borde)}
   .fila .campo{border-color:transparent;background:transparent;padding:7px 8px}
   .fila .campo:hover{border-color:var(--borde)}
-  .fila textarea.campo{resize:none;overflow:hidden;line-height:1.4;display:block}
-  .fila.hecha textarea{text-decoration:line-through;color:var(--gris)}
+  .titulo{background:none;border:0;text-align:left;cursor:pointer;font-weight:500;line-height:1.4;padding:6px 8px;border-radius:8px;width:100%}
+  .titulo:hover{background:var(--crema)}
+  .fila.hecha .titulo{text-decoration:line-through;color:var(--gris)}
   .fila.vencida input[type=date]{color:var(--rojo);font-weight:600;background:var(--rojo-fondo)}
-  .reunion{font-size:12px;color:var(--gris);padding:0 8px 2px}
-  .borrar{border:0;background:none;cursor:pointer;color:var(--gris);font-size:18px;line-height:1;padding:8px 6px;border-radius:7px}
-  .borrar:hover{color:var(--rojo);background:var(--rojo-fondo)}
-  .vacio{padding:36px 16px;text-align:center;color:var(--gris)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;padding:0 8px 2px;font-size:12px;color:var(--gris)}
+  .etq{background:var(--crema);border-radius:6px;padding:2px 7px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  .etq.emp{background:#EAF1F8;color:#244E77}
+  .prox{font-size:12.5px;color:var(--texto);padding:2px 8px 0}
+  .prox::before{content:"→ ";color:var(--bordo);font-weight:700}
+  .vacio{padding:36px 16px;text-align:center;color:var(--gris);background:var(--blanco);border:1px solid var(--borde);border-radius:14px}
+  /* Kanban */
+  .kanban{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:14px;overflow-x:auto;padding-bottom:8px}
+  .col{background:#EFE9E5;border-radius:14px;padding:10px;min-height:240px}
+  .col.sobre{outline:2px dashed var(--bordo);outline-offset:-2px}
+  .col h3{font-size:13.5px;display:flex;justify-content:space-between;align-items:center;padding:2px 4px 6px}
+  .tarjeta{background:var(--blanco);border:1px solid var(--borde);border-radius:11px;padding:11px 12px;margin-top:8px;cursor:grab;display:grid;gap:8px}
+  .tarjeta:hover{border-color:var(--bordo)}
+  .tarjeta.arrastrando{opacity:.4}
+  .tarjeta .t{font-weight:500;line-height:1.35}
+  .tarjeta .pie{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:12px;color:var(--gris)}
+  .chip{border-radius:999px;padding:2px 8px;font-weight:600;font-size:11.5px}
+  .tarjeta .vence-r{color:var(--rojo);font-weight:600}
+  .mas{margin-top:8px;font-size:12.5px;color:var(--gris);text-align:center}
+  /* Panel de detalle */
+  #fondo{position:fixed;inset:0;background:rgba(31,26,28,.35);z-index:20}
+  #panel{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--blanco);z-index:21;overflow:auto;padding:22px 24px 40px;box-shadow:-10px 0 30px rgba(0,0,0,.15)}
+  #panel .arriba{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  #panel .cerrar{border:0;background:var(--crema);border-radius:8px;width:34px;height:34px;font-size:20px;cursor:pointer}
+  #panel textarea.tit{font-size:20px;font-weight:600;border:1px solid transparent;resize:none;margin-top:12px;line-height:1.35}
+  #panel textarea.tit:hover{border-color:var(--borde)}
+  #panel .grilla{display:grid;grid-template-columns:120px 1fr;gap:10px 12px;align-items:center;margin-top:16px}
+  #panel .grilla > span{font-size:13px;color:var(--gris);font-weight:600}
+  #panel textarea.notas{min-height:150px;resize:vertical;line-height:1.5}
+  #panel .adjuntos a,#panel .abrir{color:var(--bordo);font-size:14px;overflow-wrap:anywhere}
+  #panel .peligro{margin-top:26px;border:1px solid #F3C4BF;background:var(--rojo-fondo);color:var(--rojo);border-radius:9px;padding:9px 14px;font-weight:600;cursor:pointer}
+  #panel .info{margin-top:14px;font-size:12.5px;color:var(--gris)}
   /* ---- Reuniones ---- */
   .cinta{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:20px 28px 14px}
   .cinta h2{font-size:26px;letter-spacing:-.02em}
@@ -129,13 +164,11 @@
     .nueva{grid-template-columns:1fr 1fr}
     .nueva .tarea-nueva{grid-column:1/-1}
     .fila.cabecera{display:none}
-    .fila{grid-template-columns:1fr 1fr 34px;row-gap:2px}
-    .fila .c-estado{grid-column:1;grid-row:1}
-    .fila .c-borrar{grid-column:3;grid-row:1}
-    .fila .c-tarea{grid-column:1/-1}
-    .fila .c-empresa{grid-column:1/-1}
-    .fila .c-owner{grid-column:1}
-    .fila .c-fecha{grid-column:2/-1}
+    .fila{grid-template-columns:1fr 1fr;row-gap:4px}
+    .fila .c-tarea{grid-column:1/-1;grid-row:1}
+    .barra .campo{max-width:none;flex:1 1 140px}
+    #panel .grilla{grid-template-columns:1fr}
+    #panel .grilla > span{margin-top:6px}
   }
 </style>
 </head>
@@ -191,14 +224,20 @@
       <div id="cargado" hidden></div>
     </section>
     <section id="tareas" class="vista" hidden>
-      <h2>Tareas</h2>
-      <p class="sub">Lo que sale de cada reunión de portfolio. Los cambios se guardan solos en Airtable.</p>
+      <div class="cab-t">
+        <div>
+          <h2>Tareas</h2>
+          <p class="sub">Tareas del equipo y de las reuniones de portfolio. Los cambios se guardan solos en Airtable.</p>
+        </div>
+        <div class="pestanas" id="vistas"></div>
+      </div>
 
       <form id="nueva" class="nueva">
         <input class="campo tarea-nueva" id="nTarea" placeholder="Nueva tarea…" maxlength="2000" required aria-label="Nueva tarea">
-        <select class="campo" id="nEmpresa" aria-label="Empresa"></select>
+        <select class="campo" id="nProyecto" aria-label="Proyecto"></select>
+        <select class="campo" id="nPrioridad" aria-label="Prioridad"></select>
         <select class="campo" id="nOwner" aria-label="Responsable"></select>
-        <input class="campo" id="nFecha" type="date" aria-label="Fecha de vencimiento">
+        <input class="campo" id="nFecha" type="date" aria-label="Deadline">
         <button class="primario" id="nBoton" type="submit">Agregar</button>
       </form>
       <div class="personas" id="personas"></div>
@@ -206,6 +245,8 @@
       <div class="barra">
         <div class="pestanas" id="pestanas"></div>
         <select class="campo" id="fEstado" aria-label="Filtrar por estado"></select>
+        <select class="campo" id="fPrioridad" aria-label="Filtrar por prioridad"></select>
+        <select class="campo" id="fProyecto" aria-label="Filtrar por proyecto"></select>
         <select class="campo" id="fEmpresa" aria-label="Filtrar por empresa"></select>
         <input class="campo" id="fBuscar" type="search" placeholder="Buscar…" aria-label="Buscar tareas">
       </div>
@@ -214,6 +255,8 @@
   </main>
 </div>
 <div id="aviso" hidden></div>
+<div id="fondo" hidden></div>
+<div id="panel" role="dialog" hidden aria-label="Detalle de la tarea"></div>
 
 <script>
 // ---------- Secciones del menú ----------
@@ -406,69 +449,126 @@ $("fReunion").onsubmit = async (ev) => {
 };
 
 // ---------- Tareas ----------
-let tareas = [], empresas = [], equipo = [], tareasCargadas = false;
+let tareas = [], empresas = [], proyectos = [], equipo = [], tareasCargadas = false;
 const AGREGAR = "__agregar__";
-const plano = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
+const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
+const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["proyecto", "Por proyecto"], ["kanban", "Kanban"]];
+const plano = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const iniciales = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
-const filtro = { pestana: "abiertas", estado: "", owner: null, empresa: "", q: "" }; // owner: null = todos, "" = sin asignar
-const ESTADOS = ["Pendiente", "En curso", "Esperando respuesta", "Retomar en reunión", "Hecha", "Descartada"];
-const cerrada = (t) => t.status === "Hecha" || t.status === "Descartada";
+// owner: null = todos, "" = sin asignar
+const filtro = { pestana: "abiertas", estado: "", prioridad: "", proyecto: "", empresa: "", owner: null, q: "" };
+let vista = "lista";
+try { vista = localStorage.getItem("p360-vista") || "lista"; } catch (e) {}
+const cerrada = (t) => t.status === "Done";
 const hoy = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const nombreEmpresa = (id) => (empresas.find((e) => e.id === id) || {}).name || "";
+const nombreProyecto = (id) => (proyectos.find((p) => p.id === id) || {}).name || "";
 const vencida = (t) => !cerrada(t) && t.due && t.due < hoy();
+const rangoP = (t) => { const i = PRIORIDADES.indexOf(t.priority); return i < 0 ? 9 : i; };
+const fechaCorta = (f) => f ? f.split("-").reverse().slice(0, 2).join("/") : "";
+const claseE = (s) => "pill e" + Math.max(0, ESTADOS.indexOf(s));
+const claseP = (p) => "pill p" + (PRIORIDADES.includes(p) ? PRIORIDADES.indexOf(p) : 5);
 const PESTANAS = [
   ["abiertas", "Abiertas", (t) => !cerrada(t)],
   ["vencidas", "Vencidas", vencida],
-  ["cerradas", "Cerradas", cerrada],
+  ["cerradas", "Done", cerrada],
   ["todas", "Todas", () => true],
 ];
+const ordenar = (a, b) => (cerrada(a) - cerrada(b)) || (rangoP(a) - rangoP(b)) ||
+  (a.due || "9999").localeCompare(b.due || "9999") || a.task.localeCompare(b.task, "es");
 
 async function cargarTareas() {
   try {
     const j = await api("GET", "tasks");
-    tareas = j.tasks; empresas = j.companies; tareasCargadas = true;
-    // Si todavía no existe la tabla Team, se arma la lista con los responsables que ya hay.
+    tareas = j.tasks; empresas = j.companies; proyectos = j.projects || []; tareasCargadas = true;
     equipo = j.team || [...new Map(tareas.filter((t) => t.owner).map((t) => [plano(t.owner), t.owner])).values()];
     equipo.sort((a, b) => a.localeCompare(b, "es"));
-    llenarEmpresas($("nEmpresa"), "Empresa (opcional)");
+    llenarProyectos($("nProyecto"), "Proyecto (opcional)", "");
+    llenarLista($("nPrioridad"), "Prioridad", PRIORIDADES, "");
     pintar();
   } catch (e) {
     $("lista").replaceChildren(el("div", { className: "vacio", textContent: "No se pudieron cargar las tareas: " + e.message }));
   }
 }
-function llenarEmpresas(select, vacio, valor) {
-  select.replaceChildren(el("option", { value: "", textContent: vacio }),
-    ...empresas.map((e) => el("option", { value: e.id, textContent: e.name })));
-  select.value = valor || "";
-}
-function opciones(select, vacio, valores, actual) {
-  select.replaceChildren(el("option", { value: "", textContent: vacio }),
-    ...valores.map((v) => el("option", { value: v[0], textContent: v[1] })));
-  select.value = valores.some((v) => v[0] === actual) ? actual : "";
+
+// ---- helpers de selects ----
+function llenarLista(select, vacio, valores, actual) {
+  select.replaceChildren(...(vacio !== null ? [el("option", { value: "", textContent: vacio })] : []),
+    ...valores.map((v) => Array.isArray(v) ? el("option", { value: v[0], textContent: v[1] }) : el("option", { value: v, textContent: v })));
+  const vals = valores.map((v) => (Array.isArray(v) ? v[0] : v));
+  select.value = vals.includes(actual) ? actual : (vacio !== null ? "" : vals[0]);
   return select.value;
 }
+function llenarEmpresas(select, vacio, valor) { llenarLista(select, vacio, empresas.map((e) => [e.id, e.name]), valor || ""); }
+function llenarProyectos(select, vacio, valor) {
+  const lista = proyectos.filter((p) => !p.done || p.id === valor).map((p) => [p.id, p.name]);
+  llenarLista(select, vacio, lista, valor || "");
+}
+function llenarPersonas(select, vacio, actual) {
+  const nombres = [...equipo];
+  if (actual && !nombres.some((p) => plano(p) === plano(actual))) nombres.push(actual);
+  select.replaceChildren(el("option", { value: "", textContent: vacio }),
+    ...nombres.map((p) => el("option", { value: p, textContent: p })),
+    el("option", { value: AGREGAR, textContent: "+ Agregar persona…" }));
+  select.value = nombres.find((p) => plano(p) === plano(actual)) || "";
+}
+function selectPersona(t, clase) {
+  const s = el("select", { className: clase });
+  s.setAttribute("aria-label", "Responsable");
+  llenarPersonas(s, "Sin responsable", t.owner);
+  s.onchange = async () => {
+    let v = s.value;
+    if (v === AGREGAR) { v = await agregarPersona(); if (!v) { s.value = t.owner; return; } }
+    if (v !== t.owner) cambiar(t, { owner: v });
+  };
+  return s;
+}
+function selectEstado(t) {
+  const s = el("select", { className: claseE(t.status) }, ESTADOS.map((e) => el("option", { value: e, textContent: e })));
+  s.value = t.status; s.setAttribute("aria-label", "Estado");
+  s.onchange = () => cambiar(t, { status: s.value });
+  return s;
+}
+function selectPrioridad(t) {
+  const s = el("select", { className: claseP(t.priority) });
+  llenarLista(s, "Sin prioridad", PRIORIDADES, t.priority);
+  s.setAttribute("aria-label", "Prioridad");
+  s.onchange = () => cambiar(t, { priority: s.value });
+  return s;
+}
 
+// ---- pintar ----
 function pintar() {
-  // filtros
   llenarPersonas($("nOwner"), "Responsable", $("nOwner").value);
-  const conTareas = empresas.filter((e) => tareas.some((t) => t.companyId === e.id));
-  filtro.empresa = opciones($("fEmpresa"), "Todas las empresas", conTareas.map((e) => [e.id, e.name]), filtro.empresa);
+  $("vistas").replaceChildren(...VISTAS.map(([id, nombre]) => el("button", {
+    type: "button", className: vista === id ? "activo" : "", textContent: nombre,
+    onclick: () => { vista = id; try { localStorage.setItem("p360-vista", id); } catch (e) {} pintar(); },
+  })));
 
-  filtro.estado = opciones($("fEstado"), "Todos los estados", ESTADOS.map((e) => [e, e]), filtro.estado);
+  filtro.estado = llenarLista($("fEstado"), "Todos los estados", ESTADOS, filtro.estado);
+  filtro.prioridad = llenarLista($("fPrioridad"), "Todas las prioridades", [...PRIORIDADES, ["-", "Sin prioridad"]], filtro.prioridad);
+  const usados = (k) => new Set(tareas.map((t) => t[k]).filter(Boolean));
+  const pUsados = usados("projectId"), eUsadas = usados("companyId");
+  filtro.proyecto = llenarLista($("fProyecto"), "Todos los proyectos",
+    [...proyectos.filter((p) => pUsados.has(p.id)).map((p) => [p.id, p.name]), ["-", "Sin proyecto"]], filtro.proyecto);
+  filtro.empresa = llenarLista($("fEmpresa"), "Todas las empresas", empresas.filter((e) => eUsadas.has(e.id)).map((e) => [e.id, e.name]), filtro.empresa);
 
-  const q = filtro.q.trim().toLowerCase();
+  const q = plano(filtro.q);
   const base = tareas.filter((t) =>
     (!filtro.estado || t.status === filtro.estado) &&
+    (!filtro.prioridad || (filtro.prioridad === "-" ? !t.priority : t.priority === filtro.prioridad)) &&
+    (!filtro.proyecto || (filtro.proyecto === "-" ? !t.projectId : t.projectId === filtro.proyecto)) &&
     (!filtro.empresa || t.companyId === filtro.empresa) &&
-    (!q || (t.task + " " + t.owner + " " + nombreEmpresa(t.companyId)).toLowerCase().includes(q)));
+    (!q || plano([t.task, t.owner, t.next, t.notes, nombreEmpresa(t.companyId), nombreProyecto(t.projectId)].join(" ")).includes(q)));
 
-  // Personas: el conteo es de tareas abiertas, con el resto de los filtros aplicados.
+  // Personas: el número es de tareas abiertas, con el resto de los filtros aplicados.
   const abiertas = base.filter((t) => !cerrada(t));
   const conteo = (n) => abiertas.filter((t) => (n === "" ? !t.owner : plano(t.owner) === plano(n))).length;
   const chip = (valor, nombre, num, ini) => el("button", {
     type: "button", className: "persona" + (filtro.owner === valor ? " activo" : ""),
     onclick: () => { filtro.owner = filtro.owner === valor ? null : valor; pintar(); },
-  }, [ini ? el("span", { className: "ini", textContent: ini }) : "", nombre, el("span", { className: "num", textContent: num })]);
+  }, [el("span", { className: "ini", textContent: ini }), nombre, el("span", { className: "num", textContent: num })]);
   const sueltos = [...new Set(tareas.map((t) => t.owner).filter((o) => o && !equipo.some((p) => plano(p) === plano(o))))];
   $("personas").replaceChildren(
     chip(null, "Todos", abiertas.length, "★"),
@@ -477,73 +577,161 @@ function pintar() {
     el("button", { type: "button", className: "persona nueva-p", textContent: "+ Persona", onclick: () => agregarPersona() }));
   const porPersona = base.filter((t) => filtro.owner === null || (filtro.owner === "" ? !t.owner : plano(t.owner) === plano(filtro.owner)));
 
+  // En Kanban las columnas ya separan por estado, así que no se usan las pestañas.
+  $("pestanas").hidden = vista === "kanban";
   $("pestanas").replaceChildren(...PESTANAS.map(([id, nombre, f]) =>
     el("button", { type: "button", className: filtro.pestana === id ? "activo" : "", onclick: () => { filtro.pestana = id; pintar(); } },
       [nombre, el("b", { textContent: porPersona.filter(f).length })])));
 
-  const f = PESTANAS.find((p) => p[0] === filtro.pestana)[2];
-  const visibles = porPersona.filter(f).sort((a, b) =>
-    (cerrada(a) - cerrada(b)) || (a.due || "9999").localeCompare(b.due || "9999") || (b.meetingDate || "").localeCompare(a.meetingDate || ""));
-
   const lista = $("lista");
+  if (vista === "kanban") return pintarKanban(lista, porPersona);
+  const visibles = porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]).sort(ordenar);
   if (!visibles.length) {
     lista.replaceChildren(el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros." : "Todavía no hay tareas." }));
     return;
   }
-  const cab = el("div", { className: "fila cabecera" });
-  ["Estado", "Tarea", "Empresa", "Responsable", "Vence", ""].forEach((t) => cab.append(el("div", { textContent: t })));
-  lista.replaceChildren(cab, ...visibles.map(fila));
-  lista.querySelectorAll("textarea").forEach(ajustar);
+  let grupos;
+  if (vista === "prioridad") {
+    grupos = [...PRIORIDADES, ""].map((p) => [p || "Sin prioridad", visibles.filter((t) => t.priority === p), p]);
+  } else if (vista === "proyecto") {
+    const ids = [...new Set(visibles.map((t) => t.projectId))]
+      .sort((a, b) => (!a) - (!b) || nombreProyecto(a).localeCompare(nombreProyecto(b), "es"));
+    grupos = ids.map((id) => [nombreProyecto(id) || "Sin proyecto", visibles.filter((t) => t.projectId === id)]);
+  } else {
+    grupos = [[null, visibles]];
+  }
+  lista.replaceChildren(...grupos.filter((g) => g[1].length).map(([titulo, ts, pri]) => {
+    const cab = el("div", { className: "fila cabecera" });
+    ["Estado", "Tarea", "Prioridad", "Responsable", "Deadline"].forEach((x) => cab.append(el("div", { textContent: x })));
+    const g = el("div", { className: "grupo" });
+    if (titulo !== null) {
+      const h = el("h3", {}, [pri !== undefined ? el("span", { className: "chip " + claseP(pri).replace("pill ", ""), textContent: titulo }) : titulo,
+        el("span", { className: "n", textContent: ts.length })]);
+      g.append(h);
+    }
+    g.append(cab, ...ts.map(fila));
+    return g;
+  }));
 }
-function ajustar(t) { t.style.height = "auto"; t.style.height = t.scrollHeight + "px"; }
 
 function fila(t) {
   const f = el("div", { className: "fila" + (cerrada(t) ? " hecha" : "") + (vencida(t) ? " vencida" : "") });
-  const hecho = el("select", { className: "estado e" + ESTADOS.indexOf(t.status) }, ESTADOS.map((e) => el("option", { value: e, textContent: e })));
-  hecho.value = t.status;
-  hecho.setAttribute("aria-label", "Estado");
-  hecho.onchange = () => cambiar(t, { status: hecho.value });
-
-  const texto = el("textarea", { className: "campo", rows: 1, value: t.task, maxLength: 2000 });
-  texto.setAttribute("aria-label", "Tarea");
-  texto.oninput = () => ajustar(texto);
-  texto.onkeydown = (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); texto.blur(); } };
-  texto.onchange = () => {
-    const v = texto.value.trim();
-    if (!v) { texto.value = t.task; ajustar(texto); return avisar("La tarea no puede quedar vacía", true); }
-    if (v !== t.task) cambiar(t, { task: v });
-  };
-  const cTarea = el("div", { className: "c-tarea" }, [texto]);
-  if (t.meetingDate) cTarea.append(el("div", { className: "reunion", textContent: "Reunión del " + t.meetingDate.split("-").reverse().join("/") }));
-
-  const empresa = el("select", { className: "campo" });
-  empresa.setAttribute("aria-label", "Empresa");
-  llenarEmpresas(empresa, "Sin empresa", t.companyId);
-  empresa.onchange = () => cambiar(t, { companyId: empresa.value });
-
-  const owner = el("select", { className: "campo" });
-  owner.setAttribute("aria-label", "Responsable");
-  llenarPersonas(owner, "Sin responsable", t.owner);
-  owner.onchange = async () => {
-    let v = owner.value;
-    if (v === AGREGAR) { v = await agregarPersona(); if (!v) { owner.value = t.owner; return; } }
-    if (v !== t.owner) cambiar(t, { owner: v });
-  };
+  const cTarea = el("div", { className: "c-tarea" }, [el("button", { type: "button", className: "titulo", textContent: t.task, onclick: () => abrirPanel(t) })]);
+  const meta = el("div", { className: "meta" });
+  if (t.projectId) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
+  if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
+  if (t.meetingDate) meta.append(el("span", { textContent: "Reunión " + fechaCorta(t.meetingDate) }));
+  if (t.attachments.length) meta.append(el("span", { textContent: "📎 " + t.attachments.length }));
+  if (meta.childNodes.length) cTarea.append(meta);
+  if (t.next && !cerrada(t)) cTarea.append(el("div", { className: "prox", textContent: t.next }));
 
   const fecha = el("input", { className: "campo", type: "date", value: t.due });
-  fecha.setAttribute("aria-label", "Fecha de vencimiento");
+  fecha.setAttribute("aria-label", "Deadline");
   fecha.onchange = () => cambiar(t, { due: fecha.value });
 
-  const borrar = el("button", { type: "button", className: "borrar", textContent: "×", title: "Borrar tarea" });
-  borrar.setAttribute("aria-label", "Borrar tarea");
-  borrar.onclick = () => eliminar(t);
-
-  f.append(el("div", { className: "c-estado" }, [hecho]), cTarea, el("div", { className: "c-empresa" }, [empresa]),
-    el("div", { className: "c-owner" }, [owner]), el("div", { className: "c-fecha" }, [fecha]),
-    el("div", { className: "c-borrar" }, [borrar]));
+  f.append(el("div", { className: "c-estado" }, [selectEstado(t)]), cTarea,
+    el("div", { className: "c-prio" }, [selectPrioridad(t)]),
+    el("div", { className: "c-owner" }, [selectPersona(t, "campo")]),
+    el("div", { className: "c-fecha" }, [fecha]));
   return f;
 }
 
+// ---- Kanban ----
+const TOPE_DONE = 25;
+function pintarKanban(lista, ts) {
+  const tablero = el("div", { className: "kanban" });
+  ESTADOS.forEach((estado) => {
+    let delEstado = ts.filter((t) => t.status === estado).sort(ordenar);
+    const total = delEstado.length;
+    if (estado === "Done") delEstado = delEstado.sort((a, b) => (b.due || "").localeCompare(a.due || "")).slice(0, TOPE_DONE);
+    const col = el("div", { className: "col" }, [el("h3", {}, [el("span", { className: claseE(estado).replace("pill ", "chip "), textContent: estado }),
+      el("span", { className: "n", textContent: total })])]);
+    col.ondragover = (e) => { e.preventDefault(); col.classList.add("sobre"); };
+    col.ondragleave = () => col.classList.remove("sobre");
+    col.ondrop = (e) => {
+      e.preventDefault(); col.classList.remove("sobre");
+      const t = tareas.find((x) => x.id === e.dataTransfer.getData("text/plain"));
+      if (t && t.status !== estado) cambiar(t, { status: estado });
+    };
+    delEstado.forEach((t) => col.append(tarjeta(t)));
+    if (total > delEstado.length) col.append(el("div", { className: "mas", textContent: `+ ${total - delEstado.length} más (usá la vista Lista)` }));
+    tablero.append(col);
+  });
+  lista.replaceChildren(tablero);
+}
+function tarjeta(t) {
+  const c = el("div", { className: "tarjeta", draggable: true, onclick: () => abrirPanel(t) });
+  c.ondragstart = (e) => { e.dataTransfer.setData("text/plain", t.id); c.classList.add("arrastrando"); };
+  c.ondragend = () => c.classList.remove("arrastrando");
+  c.append(el("div", { className: "t", textContent: t.task }));
+  const meta = el("div", { className: "meta" });
+  meta.style.padding = "0";
+  if (t.projectId) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
+  if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
+  if (meta.childNodes.length) c.append(meta);
+  const pie = el("div", { className: "pie" });
+  pie.append(t.priority ? el("span", { className: "chip " + claseP(t.priority).replace("pill ", ""), textContent: t.priority }) : el("span"));
+  const der = el("span", { className: vencida(t) ? "vence-r" : "" }, [t.due ? fechaCorta(t.due) + " " : ""]);
+  if (t.owner) der.append(el("span", { className: "ini", title: t.owner, textContent: iniciales(t.owner) }));
+  pie.append(der);
+  c.append(pie);
+  return c;
+}
+
+// ---- Panel de detalle ----
+let panelAbierto = null;
+function cerrarPanel() { panelAbierto = null; $("panel").hidden = true; $("fondo").hidden = true; }
+function abrirPanel(t) {
+  panelAbierto = t;
+  const p = $("panel");
+  const campoTexto = (valor, clave, extra = {}) => {
+    const i = el(extra.tag || "input", Object.assign({ className: "campo", value: valor || "" }, extra.props || {}));
+    i.onchange = () => {
+      const v = i.value.trim();
+      if (clave === "task" && !v) { i.value = t.task; return avisar("La tarea no puede quedar vacía", true); }
+      if (v !== (t[clave] || "")) cambiar(t, { [clave]: v });
+    };
+    return i;
+  };
+  const tit = campoTexto(t.task, "task", { tag: "textarea", props: { className: "campo tit", rows: 2, maxLength: 2000 } });
+  const proyecto = el("select", { className: "campo" });
+  llenarProyectos(proyecto, "Sin proyecto", t.projectId);
+  proyecto.onchange = () => cambiar(t, { projectId: proyecto.value });
+  const empresa = el("select", { className: "campo" });
+  llenarEmpresas(empresa, "Sin empresa", t.companyId);
+  empresa.onchange = () => cambiar(t, { companyId: empresa.value });
+  const fechaI = (clave) => { const i = el("input", { className: "campo", type: "date", value: t[clave] || "" }); i.onchange = () => cambiar(t, { [clave]: i.value }); return i; };
+  const link = (v) => v ? el("a", { className: "abrir", href: v, target: "_blank", rel: "noopener", textContent: "Abrir ↗" }) : "";
+
+  const grilla = el("div", { className: "grilla" });
+  const fila2 = (etiqueta, ...nodos) => grilla.append(el("span", { textContent: etiqueta }), el("div", {}, nodos));
+  fila2("Estado", selectEstado(t));
+  fila2("Prioridad", selectPrioridad(t));
+  fila2("Responsable", selectPersona(t, "campo"));
+  fila2("Proyecto", proyecto);
+  fila2("Empresa", empresa);
+  fila2("Inicio", fechaI("start"));
+  fila2("Deadline", fechaI("due"));
+  fila2("Próximo paso", campoTexto(t.next, "next", { props: { placeholder: "Qué sigue…", maxLength: 500 } }));
+  fila2("Notas", campoTexto(t.notes, "notes", { tag: "textarea", props: { className: "campo notas", placeholder: "Notas, contexto, links…" } }));
+  fila2("URL", campoTexto(t.url, "url", { props: { type: "url", placeholder: "https://…" } }), link(t.url));
+  fila2("Minuta", campoTexto(t.minuta, "minuta", { props: { type: "url", placeholder: "Link a Granola…" } }), link(t.minuta));
+  if (t.attachments.length) fila2("Adjuntos", el("div", { className: "adjuntos" },
+    t.attachments.map((a) => el("div", {}, [el("a", { href: a.url, target: "_blank", rel: "noopener", textContent: a.name })]))));
+
+  const info = [t.source && "Origen: " + t.source, t.meetingDate && "Reunión del " + t.meetingDate.split("-").reverse().join("/")].filter(Boolean).join(" · ");
+  const borrar = el("button", { type: "button", className: "peligro", textContent: "Borrar tarea", onclick: () => eliminar(t) });
+  p.replaceChildren(
+    el("div", { className: "arriba" }, [el("strong", { textContent: "Detalle de la tarea" }),
+      el("button", { type: "button", className: "cerrar", textContent: "×", title: "Cerrar", onclick: cerrarPanel })]),
+    tit, grilla, ...(info ? [el("div", { className: "info", textContent: info })] : []), borrar);
+  p.hidden = false; $("fondo").hidden = false;
+  requestAnimationFrame(() => { tit.style.height = "auto"; tit.style.height = tit.scrollHeight + "px"; });
+}
+$("fondo").onclick = cerrarPanel;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelAbierto) cerrarPanel(); });
+
+// ---- guardar ----
 async function cambiar(t, cambios) {
   const antes = Object.assign({}, t);
   Object.assign(t, cambios); pintar();
@@ -554,23 +742,15 @@ async function cambiar(t, cambios) {
     Object.assign(t, antes); avisar("No se guardó: " + e.message, true);
   }
   pintar();
+  if (panelAbierto === t && ("status" in cambios || "priority" in cambios)) abrirPanel(t); // refresca colores
 }
 
 async function eliminar(t) {
   if (!window.confirm("¿Borrar esta tarea?\n\n" + t.task)) return;
   const i = tareas.indexOf(t);
-  tareas.splice(i, 1); pintar();
+  tareas.splice(i, 1); cerrarPanel(); pintar();
   try { await api("DELETE", "tasks", { id: t.id }); avisar("Tarea borrada"); }
   catch (e) { tareas.splice(i, 0, t); pintar(); avisar("No se borró: " + e.message, true); }
-}
-
-function llenarPersonas(select, vacio, actual) {
-  const nombres = [...equipo];
-  if (actual && !nombres.some((p) => plano(p) === plano(actual))) nombres.push(actual);
-  select.replaceChildren(el("option", { value: "", textContent: vacio }),
-    ...nombres.map((p) => el("option", { value: p, textContent: p })),
-    el("option", { value: AGREGAR, textContent: "+ Agregar persona…" }));
-  select.value = nombres.find((p) => plano(p) === plano(actual)) || "";
 }
 
 async function agregarPersona() {
@@ -592,7 +772,10 @@ $("nOwner").onchange = async () => {
 $("nueva").onsubmit = async (ev) => {
   ev.preventDefault();
   const boton = $("nBoton");
-  const cuerpo = { task: $("nTarea").value.trim(), companyId: $("nEmpresa").value, owner: $("nOwner").value === AGREGAR ? "" : $("nOwner").value, due: $("nFecha").value };
+  const cuerpo = {
+    task: $("nTarea").value.trim(), projectId: $("nProyecto").value, priority: $("nPrioridad").value,
+    owner: $("nOwner").value === AGREGAR ? "" : $("nOwner").value, due: $("nFecha").value,
+  };
   if (!cuerpo.task) return;
   boton.disabled = true;
   try {
@@ -610,10 +793,11 @@ $("fEstado").onchange = (e) => {
   if (filtro.estado) filtro.pestana = "todas"; // para que el estado elegido no quede escondido por la pestaña
   pintar();
 };
+$("fPrioridad").onchange = (e) => { filtro.prioridad = e.target.value; pintar(); };
+$("fProyecto").onchange = (e) => { filtro.proyecto = e.target.value; pintar(); };
 $("fEmpresa").onchange = (e) => { filtro.empresa = e.target.value; pintar(); };
 $("fBuscar").oninput = (e) => { filtro.q = e.target.value; pintar(); };
 
-window.addEventListener("resize", () => document.querySelectorAll("#lista textarea").forEach(ajustar));
 
 iniciar();
 </script>
