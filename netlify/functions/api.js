@@ -235,6 +235,18 @@ exports.handler = async (event) => {
       console.log(`${email} agregó a ${nombre} al equipo`);
       return json(200, { name: nombre });
     }
+    if (accion === "projects" && m === "POST") {
+      let b = {};
+      try { b = JSON.parse(event.body || "{}"); } catch (e) { throw new HttpError(400, "Pedido inválido"); }
+      const nombre = String(b.name || "").trim().replace(/\s+/g, " ");
+      if (nombre.length < 2 || nombre.length > 100) throw new HttpError(400, "Escribí el nombre del proyecto");
+      const ps = await listar("Projects", ["Name", "Status"]);
+      const existe = ps.find((p) => plano(p.fields["Name"]) === plano(nombre));
+      if (existe) return json(200, { project: { id: existe.id, name: existe.fields["Name"], done: existe.fields["Status"] === "Completed" } });
+      const r = await airtable("Projects", { method: "POST", body: JSON.stringify({ fields: { Name: nombre, Status: "To do" }, typecast: true }) });
+      console.log(`${email} creó el proyecto ${nombre}`);
+      return json(200, { project: { id: r.id, name: nombre, done: false } });
+    }
     if (accion !== "tasks") throw new HttpError(404, "No existe");
     const tabla = encodeURIComponent(TASKS);
     let b = {};

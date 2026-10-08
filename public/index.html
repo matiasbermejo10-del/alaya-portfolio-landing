@@ -531,7 +531,20 @@ function llenarLista(select, vacio, valores, actual) {
 function llenarEmpresas(select, vacio, valor) { llenarLista(select, vacio, empresas.map((e) => [e.id, e.name]), valor || ""); }
 function llenarProyectos(select, vacio, valor) {
   const lista = proyectos.filter((p) => !p.done || p.id === valor).map((p) => [p.id, p.name]);
-  llenarLista(select, vacio, lista, valor || "");
+  llenarLista(select, vacio, [...lista, [AGREGAR, "+ Nuevo proyecto…"]], valor || "");
+}
+async function agregarProyecto() {
+  const nombre = (window.prompt("Nombre del proyecto nuevo:") || "").trim();
+  if (!nombre) return "";
+  try {
+    const j = await api("POST", "projects", { name: nombre });
+    if (!proyectos.some((p) => p.id === j.project.id)) {
+      proyectos.push(j.project);
+      proyectos.sort((a, b) => (a.done - b.done) || a.name.localeCompare(b.name, "es"));
+    }
+    avisar("Proyecto " + j.project.name + " creado");
+    return j.project.id;
+  } catch (e) { avisar("No se creó: " + e.message, true); return ""; }
 }
 function llenarPersonas(select, vacio, actual) {
   const nombres = [...equipo];
@@ -797,7 +810,11 @@ function abrirPanel(t) {
   const tit = campoTexto(t.task, "task", { tag: "textarea", props: { className: "campo tit", rows: 2, maxLength: 2000 } });
   const proyecto = el("select", { className: "campo" });
   llenarProyectos(proyecto, "Sin proyecto", t.projectId);
-  proyecto.onchange = () => cambiar(t, { projectId: proyecto.value });
+  proyecto.onchange = async () => {
+    let v = proyecto.value;
+    if (v === AGREGAR) { v = await agregarProyecto(); llenarProyectos(proyecto, "Sin proyecto", v || t.projectId); if (!v) return; }
+    if (v !== t.projectId) cambiar(t, { projectId: v });
+  };
   const empresa = el("select", { className: "campo" });
   llenarEmpresas(empresa, "Sin empresa", t.companyId);
   empresa.onchange = () => cambiar(t, { companyId: empresa.value });
@@ -864,6 +881,11 @@ async function agregarPersona() {
     return j.name;
   } catch (e) { avisar("No se agregó: " + e.message, true); return ""; }
 }
+$("nProyecto").onchange = async () => {
+  if ($("nProyecto").value !== AGREGAR) return;
+  const v = await agregarProyecto();
+  llenarProyectos($("nProyecto"), "Proyecto (opcional)", v);
+};
 $("nOwner").onchange = async () => {
   if ($("nOwner").value !== AGREGAR) return;
   const v = await agregarPersona();
@@ -874,7 +896,7 @@ $("nueva").onsubmit = async (ev) => {
   ev.preventDefault();
   const boton = $("nBoton");
   const cuerpo = {
-    task: $("nTarea").value.trim(), projectId: $("nProyecto").value, priority: $("nPrioridad").value,
+    task: $("nTarea").value.trim(), projectId: $("nProyecto").value === AGREGAR ? "" : $("nProyecto").value, priority: $("nPrioridad").value,
     owner: $("nOwner").value === AGREGAR ? "" : $("nOwner").value, due: $("nFecha").value,
   };
   if (!cuerpo.task) return;
