@@ -501,13 +501,14 @@ let tareas = [], empresas = [], proyectos = [], equipo = [], tareasCargadas = fa
 const AGREGAR = "__agregar__";
 const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
 const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
-const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["proyecto", "Por proyecto"], ["columnas", "Proyectos en columnas"], ["kanban", "Kanban por estado"], ["calendario", "Calendario"]];
+const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["columnas", "Por proyecto"], ["kanban", "Por estado"], ["calendario", "Calendario"]];
 const plano = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const iniciales = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 // owner: null = todos, "" = sin asignar
 const filtro = { pestana: "abiertas", estado: "", prioridad: "", proyecto: "", empresa: "", owner: null, q: "" };
 let vista = "lista";
 try { vista = localStorage.getItem("p360-vista") || "lista"; } catch (e) {}
+if (vista === "proyecto") vista = "columnas"; // la vista vieja en filas ya no existe
 const cerrada = (t) => t.status === "Done";
 const hoy = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
 const nombreEmpresa = (id) => (empresas.find((e) => e.id === id) || {}).name || "";
@@ -647,22 +648,14 @@ function pintar() {
   const lista = $("lista");
   if (vista === "kanban") return pintarKanban(lista, porPersona);
   if (vista === "calendario") return pintarCalendario(lista, porPersona);
-  if (vista === "columnas") return pintarColumnas(lista, porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]));
+  if (vista === "columnas" || vista === "prioridad")
+    return pintarColumnas(lista, porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]), vista === "prioridad" ? "priority" : "projectId");
   const visibles = porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]).sort(ordenar);
   if (!visibles.length) {
     lista.replaceChildren(el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros." : "Todavía no hay tareas." }));
     return;
   }
-  let grupos;
-  if (vista === "prioridad") {
-    grupos = [...PRIORIDADES, ""].map((p) => [p || "Sin prioridad", visibles.filter((t) => t.priority === p), p]);
-  } else if (vista === "proyecto") {
-    const ids = [...new Set(visibles.map((t) => t.projectId))]
-      .sort((a, b) => (!a) - (!b) || nombreProyecto(a).localeCompare(nombreProyecto(b), "es"));
-    grupos = ids.map((id) => [nombreProyecto(id) || "Sin proyecto", visibles.filter((t) => t.projectId === id)]);
-  } else {
-    grupos = [[null, visibles]];
-  }
+  const grupos = [[null, visibles]];
   lista.replaceChildren(...grupos.filter((g) => g[1].length).map(([titulo, ts, pri]) => {
     const cab = el("div", { className: "fila cabecera" });
     ["Estado", "Tarea", "Prioridad", "Responsable", "Deadline"].forEach((x) => cab.append(el("div", { textContent: x })));
@@ -700,56 +693,68 @@ function fila(t) {
 }
 
 // ---- Proyectos en columnas ----
-function pintarColumnas(lista, ts) {
-  const ids = new Set(ts.map((t) => t.projectId));
-  // Columnas: proyectos activos (aunque no tengan tareas) y los terminados que tengan tareas con estos filtros.
-  // Con un filtro puesto (persona, prioridad, búsqueda…) solo se muestran los proyectos que tienen tareas.
+// clave = "projectId" (una columna por proyecto) o "priority" (una columna por prioridad)
+function pintarColumnas(lista, ts, clave) {
+  const porProyecto = clave === "projectId";
+  // Con un filtro puesto (persona, prioridad, búsqueda…) solo se muestran las columnas que tienen tareas.
   const hayFiltro = filtro.owner !== null || filtro.estado || filtro.prioridad || filtro.empresa || filtro.q.trim();
-  const cols = proyectos.filter((p) => ids.has(p.id) || (!p.done && !hayFiltro))
-    .filter((p) => !filtro.proyecto || filtro.proyecto === p.id)
-    .sort((a, b) => (ts.filter((t) => t.projectId === b.id).length > 0) - (ts.filter((t) => t.projectId === a.id).length > 0) || a.name.localeCompare(b.name, "es"));
-  const columnas = [...(ids.has("") && (!filtro.proyecto || filtro.proyecto === "-") ? [{ id: "", name: "Sin proyecto" }] : []), ...cols];
+  const ids = new Set(ts.map((t) => t[clave]));
+  let columnas;
+  if (porProyecto) {
+    const cols = proyectos.filter((p) => ids.has(p.id) || (!p.done && !hayFiltro))
+      .filter((p) => !filtro.proyecto || filtro.proyecto === p.id)
+      .sort((a, b) => ids.has(b.id) - ids.has(a.id) || a.name.localeCompare(b.name, "es"));
+    columnas = [...(ids.has("") && (!filtro.proyecto || filtro.proyecto === "-") ? [{ id: "", name: "Sin proyecto" }] : []), ...cols];
+  } else {
+    columnas = [...PRIORIDADES, ""].map((p) => ({ id: p, name: p || "Sin prioridad" }))
+      .filter((c) => ids.has(c.id) || (c.id && !hayFiltro));
+  }
 
   const tablero = el("div", { className: "tablero-p" });
   const mover = (dx) => tablero.scrollBy({ left: dx * 200 * 4 });
   const cab = el("div", { className: "col-cab" }, [
-    el("span", { className: "nota", textContent: `${columnas.length} proyectos · arrastrá una tarjeta a otra columna para cambiarle el proyecto` }),
-    el("button", { type: "button", textContent: "‹", title: "Ver proyectos anteriores", onclick: () => mover(-1) }),
-    el("button", { type: "button", textContent: "›", title: "Ver más proyectos", onclick: () => mover(1) }),
-    el("button", { type: "button", className: "primario", textContent: "+ Nuevo proyecto", onclick: async () => { if (await agregarProyecto()) pintar(); } }),
+    el("span", { className: "nota", textContent: porProyecto
+      ? `${columnas.length} proyectos · arrastrá una tarjeta a otra columna para cambiarle el proyecto`
+      : "Arrastrá una tarjeta a otra columna para cambiarle la prioridad" }),
+    el("button", { type: "button", textContent: "‹", title: "Ver columnas anteriores", onclick: () => mover(-1) }),
+    el("button", { type: "button", textContent: "›", title: "Ver más columnas", onclick: () => mover(1) }),
   ]);
+  if (porProyecto) cab.append(el("button", { type: "button", className: "primario", textContent: "+ Nuevo proyecto", onclick: async () => { if (await agregarProyecto()) pintar(); } }));
 
-  columnas.forEach((p) => {
-    const delP = ts.filter((t) => t.projectId === p.id).sort(ordenar);
-    const col = el("div", { className: "col" }, [el("h3", {}, [el("span", { className: "nom", textContent: p.name, title: p.name }),
-      el("span", { className: "n", textContent: delP.length })])]);
+  columnas.forEach((c) => {
+    const delC = ts.filter((t) => t[clave] === c.id).sort(ordenar);
+    const titulo = porProyecto
+      ? el("span", { className: "nom", textContent: c.name, title: c.name })
+      : el("span", { className: "chip " + claseP(c.id).replace("pill ", ""), textContent: c.name });
+    const col = el("div", { className: "col" }, [el("h3", {}, [titulo, el("span", { className: "n", textContent: delC.length })])]);
     col.ondragover = (e) => { e.preventDefault(); col.classList.add("sobre"); };
     col.ondragleave = () => col.classList.remove("sobre");
     col.ondrop = (e) => {
       e.preventDefault(); col.classList.remove("sobre");
       const t = tareas.find((x) => x.id === e.dataTransfer.getData("text/plain"));
-      if (t && t.projectId !== p.id) cambiar(t, { projectId: p.id });
+      if (t && t[clave] !== c.id) cambiar(t, porProyecto ? { projectId: c.id } : { priority: c.id });
     };
-    delP.forEach((t) => {
-      const c = tarjeta(t, true);
-      if (cerrada(t)) c.classList.add("hecha-c");
-      col.append(c);
+    delC.forEach((t) => {
+      const card = tarjeta(t, porProyecto, !porProyecto);
+      if (cerrada(t)) card.classList.add("hecha-c");
+      col.append(card);
     });
-    // Agregar una tarea directo en este proyecto: escribir y Enter.
+    // Agregar una tarea directo en esta columna: escribir y Enter.
     const rapida = el("input", { className: "campo rapida", placeholder: "+ Agregar tarea", maxLength: 2000 });
     rapida.onkeydown = async (e) => {
       if (e.key !== "Enter" || !rapida.value.trim()) return;
       rapida.disabled = true;
       try {
-        const persona = filtro.owner || "";
-        const j = await api("POST", "tasks", { task: rapida.value.trim(), projectId: p.id, owner: persona });
+        const cuerpo = { task: rapida.value.trim(), owner: filtro.owner || "" };
+        if (porProyecto) cuerpo.projectId = c.id; else cuerpo.priority = c.id;
+        const j = await api("POST", "tasks", cuerpo);
         tareas.push(j.task); avisar("Tarea agregada"); pintar();
       } catch (err) { rapida.disabled = false; avisar("No se agregó: " + err.message, true); }
     };
     col.append(rapida);
     tablero.append(col);
   });
-  tablero.append(el("div", { className: "col nuevo-p", textContent: "+ Nuevo proyecto", onclick: async () => { if (await agregarProyecto()) pintar(); } }));
+  if (porProyecto) tablero.append(el("div", { className: "col nuevo-p", textContent: "+ Nuevo proyecto", onclick: async () => { if (await agregarProyecto()) pintar(); } }));
   lista.replaceChildren(cab, tablero);
 }
 
@@ -848,7 +853,7 @@ function pintarKanban(lista, ts) {
   });
   lista.replaceChildren(tablero);
 }
-function tarjeta(t, sinProyecto) {
+function tarjeta(t, sinProyecto, sinPrioridad) {
   const c = el("div", { className: "tarjeta", draggable: true, onclick: () => abrirPanel(t) });
   c.ondragstart = (e) => { e.dataTransfer.setData("text/plain", t.id); c.classList.add("arrastrando"); };
   c.ondragend = () => c.classList.remove("arrastrando");
@@ -859,7 +864,7 @@ function tarjeta(t, sinProyecto) {
   if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
   if (meta.childNodes.length) c.append(meta);
   const pie = el("div", { className: "pie" });
-  pie.append(t.priority ? el("span", { className: "chip " + claseP(t.priority).replace("pill ", ""), textContent: t.priority }) : el("span"));
+  pie.append(t.priority && !sinPrioridad ? el("span", { className: "chip " + claseP(t.priority).replace("pill ", ""), textContent: t.priority }) : el("span"));
   const der = el("span", { className: vencida(t) ? "vence-r" : "" }, [t.due ? fechaCorta(t.due) + " " : ""]);
   if (t.owner) der.append(el("span", { className: "ini", title: t.owner, textContent: iniciales(t.owner) }));
   pie.append(der);
