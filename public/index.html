@@ -932,10 +932,16 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelAbi
 // ---- guardar ----
 async function cambiar(t, cambios) {
   const antes = Object.assign({}, t);
+  // Al terminar una tarea que tiene "próximo paso", se ofrece crearlo como tarea nueva.
+  const siguiente = cambios.status === "Done" && t.status !== "Done" && t.next ? t.next : "";
   Object.assign(t, cambios); pintar();
   try {
     const j = await api("PATCH", "tasks", Object.assign({ id: t.id }, cambios));
     Object.assign(t, j.task); avisar("Guardado");
+    if (siguiente && window.confirm(`Tarea terminada.\n\n¿Creo una tarea nueva con el próximo paso?\n\n"${siguiente}"`)) {
+      const n = await api("POST", "tasks", { task: siguiente, owner: t.owner, projectId: t.projectId, companyId: t.companyId, priority: t.priority });
+      tareas.push(n.task); avisar("Tarea nueva creada: " + siguiente);
+    }
   } catch (e) {
     Object.assign(t, antes); avisar("No se guardó: " + e.message, true);
   }
