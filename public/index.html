@@ -98,6 +98,26 @@
   .prox{font-size:12.5px;color:var(--texto);padding:2px 8px 0}
   .prox::before{content:"→ ";color:var(--bordo);font-weight:700}
   .vacio{padding:36px 16px;text-align:center;color:var(--gris);background:var(--blanco);border:1px solid var(--borde);border-radius:14px}
+  /* Proyectos en columnas */
+  .col-cab{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .col-cab .nota{font-size:13px;color:var(--gris);margin-right:auto}
+  .col-cab button{border:1px solid var(--borde);background:var(--blanco);border-radius:9px;padding:7px 13px;cursor:pointer;font-weight:600}
+  .col-cab button:hover{border-color:var(--bordo)}
+  .col-cab .primario{border:0;color:var(--blanco);background:var(--bordo)}
+  .tablero-p{display:grid;grid-auto-flow:column;grid-auto-columns:192px;gap:8px;overflow-x:auto;padding-bottom:12px;scroll-behavior:smooth;align-items:start}
+  .tablero-p .col{min-height:140px;padding:8px;border-radius:12px}
+  .tablero-p .col h3{font-size:12.5px;line-height:1.3;gap:6px;align-items:flex-start;padding:2px 2px 4px}
+  .tablero-p .col h3 .nom{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .tablero-p .col h3 .n{color:var(--gris);font-weight:500}
+  .tablero-p .tarjeta{padding:8px 9px;gap:5px;margin-top:6px;border-radius:9px}
+  .tablero-p .tarjeta .t{font-size:12.5px;line-height:1.3}
+  .tablero-p .tarjeta .pie{font-size:11px}
+  .tablero-p .tarjeta .ini{width:20px;height:20px;font-size:9.5px}
+  .tablero-p .tarjeta .chip{font-size:10.5px;padding:1px 6px}
+  .tablero-p .tarjeta.hecha-c .t{text-decoration:line-through;color:var(--gris)}
+  .tablero-p input.rapida{margin-top:8px;font-size:12.5px;padding:7px 8px;border-style:dashed;background:transparent}
+  .tablero-p input.rapida:focus{background:var(--blanco);border-style:solid}
+  .col.nuevo-p{display:flex;align-items:center;justify-content:center;border:1px dashed #CDBFB9;background:transparent;color:var(--bordo);font-weight:600;cursor:pointer;min-height:80px}
   /* Calendario */
   .cal-cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
   .cal-cab h3{font-size:20px;letter-spacing:-.01em;margin-right:auto;text-transform:capitalize}
@@ -481,7 +501,7 @@ let tareas = [], empresas = [], proyectos = [], equipo = [], tareasCargadas = fa
 const AGREGAR = "__agregar__";
 const ESTADOS = ["To do", "In progress", "Catch Up", "Stand by", "Done"];
 const PRIORIDADES = ["Urgent", "High", "Medium", "Low", "Stand by"];
-const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["proyecto", "Por proyecto"], ["kanban", "Kanban"], ["calendario", "Calendario"]];
+const VISTAS = [["lista", "Lista"], ["prioridad", "Por prioridad"], ["proyecto", "Por proyecto"], ["columnas", "Proyectos en columnas"], ["kanban", "Kanban por estado"], ["calendario", "Calendario"]];
 const plano = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 const iniciales = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
 // owner: null = todos, "" = sin asignar
@@ -592,7 +612,7 @@ function pintar() {
   const usados = (k) => new Set(tareas.map((t) => t[k]).filter(Boolean));
   const pUsados = usados("projectId"), eUsadas = usados("companyId");
   filtro.proyecto = llenarLista($("fProyecto"), "Todos los proyectos",
-    [...proyectos.filter((p) => pUsados.has(p.id)).map((p) => [p.id, p.name]), ["-", "Sin proyecto"]], filtro.proyecto);
+    [...proyectos.filter((p) => pUsados.has(p.id) || !p.done).map((p) => [p.id, p.name]), ["-", "Sin proyecto"], [AGREGAR, "+ Nuevo proyecto…"]], filtro.proyecto);
   filtro.empresa = llenarLista($("fEmpresa"), "Todas las empresas", empresas.filter((e) => eUsadas.has(e.id)).map((e) => [e.id, e.name]), filtro.empresa);
 
   const q = plano(filtro.q);
@@ -627,6 +647,7 @@ function pintar() {
   const lista = $("lista");
   if (vista === "kanban") return pintarKanban(lista, porPersona);
   if (vista === "calendario") return pintarCalendario(lista, porPersona);
+  if (vista === "columnas") return pintarColumnas(lista, porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]));
   const visibles = porPersona.filter(PESTANAS.find((p) => p[0] === filtro.pestana)[2]).sort(ordenar);
   if (!visibles.length) {
     lista.replaceChildren(el("div", { className: "vacio", textContent: tareas.length ? "No hay tareas con estos filtros." : "Todavía no hay tareas." }));
@@ -676,6 +697,58 @@ function fila(t) {
     el("div", { className: "c-owner" }, [selectPersona(t, "campo")]),
     el("div", { className: "c-fecha" }, [fecha]));
   return f;
+}
+
+// ---- Proyectos en columnas ----
+function pintarColumnas(lista, ts) {
+  const ids = new Set(ts.map((t) => t.projectId));
+  // Columnas: proyectos activos (aunque no tengan tareas) y los terminados que tengan tareas con estos filtros.
+  const cols = proyectos.filter((p) => !p.done || ids.has(p.id))
+    .filter((p) => !filtro.proyecto || filtro.proyecto === p.id)
+    .sort((a, b) => (ts.filter((t) => t.projectId === b.id).length > 0) - (ts.filter((t) => t.projectId === a.id).length > 0) || a.name.localeCompare(b.name, "es"));
+  const columnas = [...(ids.has("") && (!filtro.proyecto || filtro.proyecto === "-") ? [{ id: "", name: "Sin proyecto" }] : []), ...cols];
+
+  const tablero = el("div", { className: "tablero-p" });
+  const mover = (dx) => tablero.scrollBy({ left: dx * 200 * 4 });
+  const cab = el("div", { className: "col-cab" }, [
+    el("span", { className: "nota", textContent: `${columnas.length} proyectos · arrastrá una tarjeta a otra columna para cambiarle el proyecto` }),
+    el("button", { type: "button", textContent: "‹", title: "Ver proyectos anteriores", onclick: () => mover(-1) }),
+    el("button", { type: "button", textContent: "›", title: "Ver más proyectos", onclick: () => mover(1) }),
+    el("button", { type: "button", className: "primario", textContent: "+ Nuevo proyecto", onclick: async () => { if (await agregarProyecto()) pintar(); } }),
+  ]);
+
+  columnas.forEach((p) => {
+    const delP = ts.filter((t) => t.projectId === p.id).sort(ordenar);
+    const col = el("div", { className: "col" }, [el("h3", {}, [el("span", { className: "nom", textContent: p.name, title: p.name }),
+      el("span", { className: "n", textContent: delP.length })])]);
+    col.ondragover = (e) => { e.preventDefault(); col.classList.add("sobre"); };
+    col.ondragleave = () => col.classList.remove("sobre");
+    col.ondrop = (e) => {
+      e.preventDefault(); col.classList.remove("sobre");
+      const t = tareas.find((x) => x.id === e.dataTransfer.getData("text/plain"));
+      if (t && t.projectId !== p.id) cambiar(t, { projectId: p.id });
+    };
+    delP.forEach((t) => {
+      const c = tarjeta(t, true);
+      if (cerrada(t)) c.classList.add("hecha-c");
+      col.append(c);
+    });
+    // Agregar una tarea directo en este proyecto: escribir y Enter.
+    const rapida = el("input", { className: "campo rapida", placeholder: "+ Agregar tarea", maxLength: 2000 });
+    rapida.onkeydown = async (e) => {
+      if (e.key !== "Enter" || !rapida.value.trim()) return;
+      rapida.disabled = true;
+      try {
+        const persona = filtro.owner || "";
+        const j = await api("POST", "tasks", { task: rapida.value.trim(), projectId: p.id, owner: persona });
+        tareas.push(j.task); avisar("Tarea agregada"); pintar();
+      } catch (err) { rapida.disabled = false; avisar("No se agregó: " + err.message, true); }
+    };
+    col.append(rapida);
+    tablero.append(col);
+  });
+  tablero.append(el("div", { className: "col nuevo-p", textContent: "+ Nuevo proyecto", onclick: async () => { if (await agregarProyecto()) pintar(); } }));
+  lista.replaceChildren(cab, tablero);
 }
 
 // ---- Calendario ----
@@ -773,14 +846,14 @@ function pintarKanban(lista, ts) {
   });
   lista.replaceChildren(tablero);
 }
-function tarjeta(t) {
+function tarjeta(t, sinProyecto) {
   const c = el("div", { className: "tarjeta", draggable: true, onclick: () => abrirPanel(t) });
   c.ondragstart = (e) => { e.dataTransfer.setData("text/plain", t.id); c.classList.add("arrastrando"); };
   c.ondragend = () => c.classList.remove("arrastrando");
   c.append(el("div", { className: "t", textContent: t.task }));
   const meta = el("div", { className: "meta" });
   meta.style.padding = "0";
-  if (t.projectId) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
+  if (t.projectId && !sinProyecto) meta.append(el("span", { className: "etq", textContent: nombreProyecto(t.projectId) }));
   if (t.companyId) meta.append(el("span", { className: "etq emp", textContent: nombreEmpresa(t.companyId) }));
   if (meta.childNodes.length) c.append(meta);
   const pie = el("div", { className: "pie" });
@@ -917,7 +990,11 @@ $("fEstado").onchange = (e) => {
   pintar();
 };
 $("fPrioridad").onchange = (e) => { filtro.prioridad = e.target.value; pintar(); };
-$("fProyecto").onchange = (e) => { filtro.proyecto = e.target.value; pintar(); };
+$("fProyecto").onchange = async (e) => {
+  let v = e.target.value;
+  if (v === AGREGAR) v = await agregarProyecto();
+  filtro.proyecto = v; pintar();
+};
 $("fEmpresa").onchange = (e) => { filtro.empresa = e.target.value; pintar(); };
 $("fBuscar").oninput = (e) => { filtro.q = e.target.value; pintar(); };
 
