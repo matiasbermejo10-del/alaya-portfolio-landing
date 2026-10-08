@@ -1,0 +1,6 @@
+{
+  "name": "alaya-portfolio-360",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
