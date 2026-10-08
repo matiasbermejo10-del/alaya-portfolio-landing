@@ -85,6 +85,7 @@
   .pregunta .pf small{display:block;color:var(--gris);font-size:12px}
   .pregunta .pf button{border:1px solid var(--bordo);background:var(--blanco);color:var(--bordo);border-radius:8px;padding:6px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .pregunta .pf button:hover{background:var(--bordo);color:#fff}
+  .pregunta .pf select.asignar{width:auto;max-width:230px;border-color:var(--bordo);color:var(--bordo);font-weight:600;cursor:pointer}
   .globo{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--rojo);color:#fff;font-size:11.5px;font-weight:700;margin-left:auto}
   nav button.activo .globo{background:var(--rojo)}
   .barra{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
@@ -898,12 +899,24 @@ function bloqueSinDueno(base) {
   if (!filtro.owner) return null;
   const sueltas = base.filter((t) => !t.owner && !cerrada(t)).sort(ordenar);
   if (!sueltas.length) return null;
-  const caja = el("div", { className: "pregunta" }, [el("h3", { textContent: sueltas.length === 1 ? "Hay 1 tarea sin responsable, ¿es tuya?" : `Hay ${sueltas.length} tareas sin responsable, ¿alguna es tuya?` })]);
+  const caja = el("div", { className: "pregunta" }, [el("h3", { textContent: sueltas.length === 1 ? "Hay 1 tarea sin responsable" : `Hay ${sueltas.length} tareas sin responsable` })]);
   sueltas.slice(0, 8).forEach((t) => {
     const info = [t.projectId && nombreProyecto(t.projectId), t.companyId && nombreEmpresa(t.companyId), t.meetingDate && "Reunión " + fechaCorta(t.meetingDate)].filter(Boolean).join(" · ");
     const txt = el("span", { textContent: t.task });
     if (info) txt.append(el("small", { textContent: info }));
-    caja.append(el("div", { className: "pf" }, [txt, el("button", { type: "button", textContent: "Es mía", onclick: () => cambiar(t, { owner: filtro.owner }) })]));
+    // "Añadir responsable": un desplegable con la lista del equipo (la persona elegida arriba aparece primera).
+    const sel = el("select", { className: "campo asignar" });
+    sel.setAttribute("aria-label", "Añadir responsable");
+    const orden = [filtro.owner, ...equipo.filter((p) => plano(p) !== plano(filtro.owner))];
+    sel.replaceChildren(el("option", { value: "", textContent: "Añadir responsable…" }),
+      ...orden.map((p) => el("option", { value: p, textContent: p })),
+      el("option", { value: AGREGAR, textContent: "+ Agregar persona…" }));
+    sel.onchange = async () => {
+      let v = sel.value;
+      if (v === AGREGAR) { v = await agregarPersona(); if (!v) { sel.value = ""; return; } }
+      if (v) cambiar(t, { owner: v });
+    };
+    caja.append(el("div", { className: "pf" }, [txt, sel]));
   });
   if (sueltas.length > 8) caja.append(el("div", { className: "pf" }, [el("span", { textContent: `… y ${sueltas.length - 8} más en "Sin asignar"` })]));
   return caja;
